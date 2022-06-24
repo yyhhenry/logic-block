@@ -7,7 +7,7 @@ export interface AppHeaderNodeProps {
   originProps?: DOMAttributes<HTMLDivElement>;
   keepFocus?: boolean;
 }
-export interface AppHeaderNodeState {
+interface AppHeaderNodeState {
 }
 export class AppHeaderNode extends React.Component<AppHeaderNodeProps, AppHeaderNodeState> {
   render(): React.ReactNode {
@@ -52,7 +52,7 @@ export interface AppOptionListProps {
    */
   onResolve: (option: string | null) => void;
 }
-export interface AppOptionListState {
+interface AppOptionListState {
 }
 export class AppOptionList extends React.Component<AppOptionListProps, AppOptionListState> {
   static readonly animeDuration = 150;
@@ -73,7 +73,7 @@ export class AppOptionList extends React.Component<AppOptionListProps, AppOption
         style={{
           position: 'fixed',
           left: 0, bottom: 0, right: 0, height: '100%',
-          zIndex: 100,
+          zIndex: 5,
           background: 'rgb(0,0,0,.4)',
           display: 'flex',
           justifyContent: 'center',
@@ -140,15 +140,15 @@ export class AppOptionList extends React.Component<AppOptionListProps, AppOption
 export interface AppHeaderProps {
   pageContent?: React.ReactNode;
 }
-export type MenuOptionType = '文件' | '选项';
-export interface AppHeaderState {
+type MenuOptionType = '文件' | '选项';
+interface AppHeaderState {
   menuState: MenuOptionType | undefined;
 }
 export class AppHeader extends React.Component<AppHeaderProps, AppHeaderState> {
   state: Readonly<AppHeaderState> = { menuState: undefined };
   render(): React.ReactNode {
     const headerHeight = 60;
-    const contentMarginTop = headerHeight + 20;
+    const contentMargin = 20;
     const menuList: MenuOptionType[] = ['文件', '选项'];
     return (
       <div>
@@ -160,6 +160,7 @@ export class AppHeader extends React.Component<AppHeaderProps, AppHeaderState> {
             boxShadow: '0 0 5px 3px gray',
             display: 'flex',
             justifyContent: 'flex-start',
+            zIndex: 4,
           }}
         >
           {menuList.map((str, ind) => {
@@ -176,7 +177,8 @@ export class AppHeader extends React.Component<AppHeaderProps, AppHeaderState> {
         </header>
         <div
           style={{
-            marginTop: contentMarginTop,
+            marginTop: headerHeight + contentMargin,
+            marginBottom: contentMargin,
             position: 'relative',
           }}
         >
@@ -185,7 +187,7 @@ export class AppHeader extends React.Component<AppHeaderProps, AppHeaderState> {
         <div>
           {
             this.state.menuState === '文件' ?
-              <AppOptionList options={['重启页面', '退出页面']} onResolve={res => {
+              <AppOptionList options={['刷新文件列表', '导入文件', '', '重启页面', '退出页面']} onResolve={res => {
                 if (res === '退出页面') {
                   window.confirm('确认要退出吗') && window.close();
                 } else if (res === '重启页面') {
@@ -196,7 +198,7 @@ export class AppHeader extends React.Component<AppHeaderProps, AppHeaderState> {
           }
           {
             this.state.menuState === '选项' ?
-              <AppOptionList options={['A', 'B', '', 'C']} onResolve={res => {
+              <AppOptionList options={['设置']} onResolve={res => {
                 this.setState({ menuState: undefined });
               }} /> : undefined
           }
