@@ -1,7 +1,6 @@
 import React, { DOMAttributes } from 'react';
 import { EaseAnime } from './EaseAnime';
 import { HoveredNode } from './HoveredNode';
-
 export interface AppHeaderNodeProps {
   content: string;
   originProps?: DOMAttributes<HTMLDivElement>;
@@ -187,11 +186,13 @@ export class AppHeader extends React.Component<AppHeaderProps, AppHeaderState> {
         <div>
           {
             this.state.menuState === '文件' ?
-              <AppOptionList options={['刷新文件列表', '导入文件', '', '重启页面', '退出页面']} onResolve={res => {
-                if (res === '退出页面') {
+              <AppOptionList options={['新建文件', '导入文件', '', '退出']} onResolve={res => {
+                if (res === '退出') {
                   window.confirm('确认要退出吗') && window.close();
-                } else if (res === '重启页面') {
-                  window.confirm('确认要重启页面吗') && window.location.reload();
+                } else if (res === '新建文件') {
+                  window.alert('敬请期待');
+                } else if (res === '导入文件') {
+                  window.alert('敬请期待');
                 }
                 this.setState({ menuState: undefined });
               }} /> : undefined
@@ -199,6 +200,9 @@ export class AppHeader extends React.Component<AppHeaderProps, AppHeaderState> {
           {
             this.state.menuState === '选项' ?
               <AppOptionList options={['设置']} onResolve={res => {
+                if (res === '设置') {
+                  window.alert('敬请期待');
+                }
                 this.setState({ menuState: undefined });
               }} /> : undefined
           }

@@ -1,7 +1,10 @@
 import React from "react";
+import { AppDataBase } from "./AppDataBase";
+import { isObject } from "./CommonHead";
 import { HoveredNode } from "./HoveredNode";
 
 export interface AppFileCardProps {
+  fileInfo: FileInfoType;
 }
 interface AppFileCardState {
 }
@@ -26,7 +29,7 @@ export class AppFileCard extends React.Component<AppFileCardProps, AppFileCardSt
               width: '100%',
               height: '90%',
               borderRadius: 15,
-              backgroundColor: 'gray',
+              backgroundColor: this.props.fileInfo.color,
             }}>
             </div>
             <div style={{
@@ -35,7 +38,7 @@ export class AppFileCard extends React.Component<AppFileCardProps, AppFileCardSt
               display: 'flex',
               justifyContent: 'center',
             }}>
-              <span>{'???'}</span>
+              <span>{this.props.fileInfo.filename}</span>
             </div>
           </div>
         )} />
@@ -82,10 +85,27 @@ export class AppADBoard extends React.Component<AppADBoardProps, AppADBoardState
 export interface AppContentProps {
 }
 interface AppContentState {
+  fileList: FileInfoType[] | undefined;
+}
+interface FileInfoType {
+  filename: string;
+  color: string;
+}
+function isFileInfoType(obj: unknown): obj is FileInfoType {
+  return isObject(obj) && typeof obj.filename == 'string' && typeof obj.color == 'string';
 }
 export class AppContent extends React.Component<AppContentProps, AppContentState> {
-  state: Readonly<AppContentState> = {};
+  state: Readonly<AppContentState> = { fileList: undefined };
+  requestFileListUpdate() {
+    let database = AppDataBase.getDataBase('yyhhenry-logic-block');
+    database.queryAllTransaction('file-list', isFileInfoType).then(data => {
+      this.setState({ fileList: data });
+    });
+  }
   render() {
+    if (this.state.fileList === undefined) {
+      this.requestFileListUpdate();
+    }
     return (
       <div>
         <div style={{
@@ -101,10 +121,13 @@ export class AppContent extends React.Component<AppContentProps, AppContentState
               margin: 15,
               backgroundColor: 'white',
             }}>
-              <AppFileCard />
-              <AppFileCard />
-              <AppFileCard />
-              <AppFileCard />
+              {this.state.fileList !== undefined && (
+                this.state.fileList.length === 0 ?
+                  (<h2 style={{ color: 'gray', textAlign: 'center' }}>新建文件以开始</h2>) :
+                  this.state.fileList.map(file => (
+                    <AppFileCard key={file.filename} fileInfo={file} />
+                  ))
+              )}
             </div>
           </div>
 
@@ -123,3 +146,12 @@ export class AppContent extends React.Component<AppContentProps, AppContentState
     );
   }
 }
+
+(() => {
+  let database = AppDataBase.getDataBase('yyhhenry-logic-block');
+  database.modifyTransaction('file-list', store => {
+    // store.clear();
+    // store.put({ filename: '0000', color: 'gray' });
+    // store.put({ filename: '0001', color: 'pink' });
+  });
+})();
