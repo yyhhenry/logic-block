@@ -1,23 +1,33 @@
 import React from 'react';
-import { AppContent } from './component/AppContent';
-import { AppHeader } from './component/AppHeader';
-import { getRoute } from './component/CommonHead';
+import { AppEditor } from './component/AppEditor/AppEditor';
+import { AppHome } from './component/AppHome/AppHome';
+import { AppAlert } from './component/BasicModule/AppAlert';
+import { MyRoute } from './component/BasicModule/CommonHead';
 
-class App extends React.Component {
+class App extends React.Component<{}, {}> {
   render(): React.ReactNode {
-    let page = getRoute();
-    if (page === '/') {
-      return (
-        <AppHeader pageContent={
-          <AppContent />
-        } />
-      );
-    } else if (page === '/component/AppContent') {
-      return (
-        <AppContent />
-      );
-    }
-    return <div />;
+    return (
+      <div>
+        <AppAlert />
+        {(() => {
+          let page = MyRoute.getRoute();
+          if (page === '/') {
+            return (
+              <AppHome />
+            );
+          } else if (page === '/AppEditor') {
+            return (
+              <AppEditor />
+            );
+          }
+          return (
+            <div>
+              <h1 style={{ textAlign: 'center' }}>404 Not Found</h1>
+            </div>
+          );
+        })()}
+      </div>
+    );
   }
 }
 

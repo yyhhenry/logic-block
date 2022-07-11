@@ -1,4 +1,5 @@
 import React, { DOMAttributes } from 'react';
+import { ColorTable, ZIndexTable } from './CommonHead';
 import { EaseAnime } from './EaseAnime';
 import { HoveredNode } from './HoveredNode';
 export interface AppHeaderNodeProps {
@@ -6,9 +7,7 @@ export interface AppHeaderNodeProps {
   originProps?: DOMAttributes<HTMLDivElement>;
   keepFocus?: boolean;
 }
-interface AppHeaderNodeState {
-}
-export class AppHeaderNode extends React.Component<AppHeaderNodeProps, AppHeaderNodeState> {
+export class AppHeaderNode extends React.Component<AppHeaderNodeProps, {}> {
   render(): React.ReactNode {
     return (
       <div {...this.props.originProps} style={{ position: 'relative' }}>
@@ -49,11 +48,9 @@ export interface AppOptionListProps {
   /**
    * 当用户单击空白处或者间隔标识的时候传入null，否则传入对应菜单选项（菜单选项应该避免重复）
    */
-  onResolve: (option: string | null) => void;
+  resolve: (option: string | null) => void;
 }
-interface AppOptionListState {
-}
-export class AppOptionList extends React.Component<AppOptionListProps, AppOptionListState> {
+export class AppOptionList extends React.Component<AppOptionListProps, {}> {
   static readonly animeDuration = 150;
   anime = new EaseAnime(0).animeTo(1, AppOptionList.animeDuration);
   private enable = true;
@@ -62,7 +59,7 @@ export class AppOptionList extends React.Component<AppOptionListProps, AppOption
     this.enable = false;
     this.anime.animeTo(0, AppOptionList.animeDuration);
     setTimeout(() => {
-      this.props.onResolve(option);
+      this.props.resolve(option);
     }, AppOptionList.animeDuration);
   }
   render(): React.ReactNode {
@@ -72,8 +69,8 @@ export class AppOptionList extends React.Component<AppOptionListProps, AppOption
         style={{
           position: 'fixed',
           left: 0, bottom: 0, right: 0, height: '100%',
-          zIndex: 5,
-          background: 'rgb(0,0,0,.4)',
+          zIndex: ZIndexTable.menuOption,
+          backgroundColor: ColorTable.curtain,
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
@@ -131,81 +128,6 @@ export class AppOptionList extends React.Component<AppOptionListProps, AppOption
               </div>
             );
           })}
-        </div>
-      </div>
-    );
-  }
-}
-export interface AppHeaderProps {
-  pageContent?: React.ReactNode;
-}
-type MenuOptionType = '文件' | '选项';
-interface AppHeaderState {
-  menuState: MenuOptionType | undefined;
-}
-export class AppHeader extends React.Component<AppHeaderProps, AppHeaderState> {
-  state: Readonly<AppHeaderState> = { menuState: undefined };
-  render(): React.ReactNode {
-    const headerHeight = 60;
-    const contentMargin = 20;
-    const menuList: MenuOptionType[] = ['文件', '选项'];
-    return (
-      <div>
-        <header
-          style={{
-            position: 'fixed',
-            top: 0, left: 0, right: 0, height: headerHeight,
-            background: 'rgba(255,255,255)',
-            boxShadow: '0 0 5px 3px gray',
-            display: 'flex',
-            justifyContent: 'flex-start',
-            zIndex: 4,
-          }}
-        >
-          {menuList.map((str, ind) => {
-            return (
-              <AppHeaderNode key={ind} content={str} keepFocus={this.state.menuState === str}
-                originProps={{
-                  onClick: () => {
-                    this.setState({ menuState: str });
-                  }
-                }}
-              />
-            );
-          })}
-        </header>
-        <div
-          style={{
-            marginTop: headerHeight + contentMargin,
-            marginBottom: contentMargin,
-            position: 'relative',
-          }}
-        >
-          {this.props.pageContent}
-        </div>
-        <div>
-          {
-            this.state.menuState === '文件' ?
-              <AppOptionList options={['新建文件', '导入文件', '', '退出']} onResolve={res => {
-                if (res === '退出') {
-                  window.confirm('确认要退出吗') && window.close();
-                } else if (res === '新建文件') {
-                  window.alert('敬请期待');
-                } else if (res === '导入文件') {
-                  window.alert('敬请期待');
-                }
-                this.setState({ menuState: undefined });
-              }} /> : undefined
-          }
-          {
-            this.state.menuState === '选项' ?
-              <AppOptionList options={['设置']} onResolve={res => {
-                if (res === '设置') {
-                  window.alert('敬请期待');
-                }
-                this.setState({ menuState: undefined });
-              }} /> : undefined
-          }
         </div>
       </div>
     );

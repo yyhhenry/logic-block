@@ -1,15 +1,12 @@
 import React from "react";
-import { AppDataBase } from "./AppDataBase";
-import { isObject } from "./CommonHead";
-import { HoveredNode } from "./HoveredNode";
+import { AppDataBase } from "../AppDataBase";
+import { AppFileInfo, isAppFileInfo } from "./AppFileInfo";
+import { HoveredNode } from "../BasicModule/HoveredNode";
 
 export interface AppFileCardProps {
-  fileInfo: FileInfoType;
+  fileInfo: AppFileInfo;
 }
-interface AppFileCardState {
-}
-export class AppFileCard extends React.Component<AppFileCardProps, AppFileCardState> {
-  state: Readonly<AppFileCardState> = {};
+export class AppFileCard extends React.Component<AppFileCardProps, {}> {
   render() {
     return (
       <HoveredNode style={() => ({ display: 'inline-block' })}
@@ -46,12 +43,7 @@ export class AppFileCard extends React.Component<AppFileCardProps, AppFileCardSt
   }
 }
 
-export interface AppADBoardProps {
-}
-interface AppADBoardState {
-}
-export class AppADBoard extends React.Component<AppADBoardProps, AppADBoardState> {
-  state: Readonly<AppADBoardState> = {};
+export class AppADBoard extends React.Component<{}, {}> {
   render() {
     const textContent = '广告位招租  有意者速来';
     return (
@@ -82,23 +74,15 @@ export class AppADBoard extends React.Component<AppADBoardProps, AppADBoardState
   }
 }
 
-export interface AppContentProps {
+interface AppHomeContentState {
+  fileList: AppFileInfo[] | undefined;
 }
-interface AppContentState {
-  fileList: FileInfoType[] | undefined;
-}
-interface FileInfoType {
-  filename: string;
-  color: string;
-}
-function isFileInfoType(obj: unknown): obj is FileInfoType {
-  return isObject(obj) && typeof obj.filename == 'string' && typeof obj.color == 'string';
-}
-export class AppContent extends React.Component<AppContentProps, AppContentState> {
-  state: Readonly<AppContentState> = { fileList: undefined };
+
+export class AppHomeContent extends React.Component<{}, AppHomeContentState> {
+  state: Readonly<AppHomeContentState> = { fileList: undefined };
   requestFileListUpdate() {
     let database = AppDataBase.getDataBase('yyhhenry-logic-block');
-    database.queryAllTransaction('file-list', isFileInfoType).then(data => {
+    database.queryAllTransaction('file-list', isAppFileInfo).then(data => {
       this.setState({ fileList: data });
     });
   }
@@ -146,12 +130,3 @@ export class AppContent extends React.Component<AppContentProps, AppContentState
     );
   }
 }
-
-(() => {
-  let database = AppDataBase.getDataBase('yyhhenry-logic-block');
-  database.modifyTransaction('file-list', store => {
-    // store.clear();
-    // store.put({ filename: '0000', color: 'gray' });
-    // store.put({ filename: '0001', color: 'pink' });
-  });
-})();
