@@ -1,11 +1,11 @@
 import React from 'react';
+import { AppEditorHeader } from './AppEditorHeader';
 export class AppEditor extends React.Component<{}, {}> {
   render(): React.ReactNode {
     return (
-      <div/>
-      // <AppHomeHeader pageContent={
-      //   <AppHomeContent />
-      // } />
+      <AppEditorHeader pageContent={<div/>
+        // <AppHomeContent />
+      } />
     );
   }
 }

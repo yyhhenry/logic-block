@@ -8,7 +8,7 @@ export namespace ZIndexTable {
   export const alert = 10;
 }
 export namespace ColorTable {
-  export const curtain = 'rgb(0,0,0,.4)';
+  export const curtain = 'rgb(0,0,0,.2)';
 }
 export namespace MyRoute {
   export function getParams() {

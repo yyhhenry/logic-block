@@ -1,24 +1,25 @@
 import React from 'react';
 import { AppAlert } from '../BasicModule/AppAlert';
 import { AppHeaderNode, AppOptionList } from '../BasicModule/AppHeader';
+import { MyRoute } from '../BasicModule/CommonHead';
 
-export interface AppHomeHeaderProps {
+export interface AppEditorHeaderProps {
   pageContent?: React.ReactNode;
 }
-type HomeMenuOptionType = '文件' | '选项';
-interface AppHomeHeaderState {
-  menuState: HomeMenuOptionType | undefined;
+type EditorMenuOptionType = '文件' | '编辑' | '插入';
+interface AppEditorHeaderState {
+  menuState: EditorMenuOptionType | undefined;
   headerNodeRect: DOMRect | undefined;
 }
-export class AppHomeHeader extends React.Component<AppHomeHeaderProps, AppHomeHeaderState> {
-  state: Readonly<AppHomeHeaderState> = {
+export class AppEditorHeader extends React.Component<AppEditorHeaderProps, AppEditorHeaderState> {
+  state: Readonly<AppEditorHeaderState> = {
     menuState: undefined,
     headerNodeRect: undefined,
   };
   render(): React.ReactNode {
     const headerHeight = 60;
     const contentMargin = 20;
-    const menuList: HomeMenuOptionType[] = ['文件', '选项'];
+    const menuList: EditorMenuOptionType[] = ['文件', '编辑', '插入'];
     return (
       <div>
         <header
@@ -77,7 +78,7 @@ export class AppHomeHeader extends React.Component<AppHomeHeaderProps, AppHomeHe
             this.state.menuState === '文件' && this.state.headerNodeRect ?
               <AppOptionList
                 headerNodeRect={this.state.headerNodeRect}
-                options={['新建文件', '导入文件', '', '退出']}
+                options={['回到主界面', '', '退出']}
                 resolve={res => {
                   if (res === '退出') {
                     AppAlert.confirm('确认要退出吗').then(v => {
@@ -85,23 +86,40 @@ export class AppHomeHeader extends React.Component<AppHomeHeaderProps, AppHomeHe
                         window.close();
                       }
                     })
-                  } else if (res === '新建文件') {
-                    AppAlert.alert('[新建文件] - 敬请期待');
-                  } else if (res === '导入文件') {
-                    AppAlert.alert('[导入文件] - 敬请期待');
+                  } else if (res === '回到主界面') {
+                    AppAlert.confirm('确认要回到主界面吗').then(v => {
+                      if (v) {
+                        MyRoute.routeTo('/');
+                      }
+                    })
                   }
                   this.setState({ menuState: undefined });
                 }}
               /> : undefined
           }
           {
-            this.state.menuState === '选项' && this.state.headerNodeRect ?
+            this.state.menuState === '编辑' && this.state.headerNodeRect ?
               <AppOptionList
                 headerNodeRect={this.state.headerNodeRect}
-                options={['设置']}
+                options={['撤销', '重做']}
                 resolve={res => {
-                  if (res === '设置') {
-                    AppAlert.alert('[设置] - 敬请期待');
+                  if (res === '撤销') {
+                    AppAlert.alert('[撤销] - 敬请期待');
+                  } else if (res === '重做') {
+                    AppAlert.alert('[重做] - 敬请期待');
+                  }
+                  this.setState({ menuState: undefined });
+                }}
+              /> : undefined
+          }
+          {
+            this.state.menuState === '插入' && this.state.headerNodeRect ?
+              <AppOptionList
+                headerNodeRect={this.state.headerNodeRect}
+                options={['节点']}
+                resolve={res => {
+                  if (res === '节点') {
+                    AppAlert.alert('[插入 - 节点] - 敬请期待');
                   }
                   this.setState({ menuState: undefined });
                 }}

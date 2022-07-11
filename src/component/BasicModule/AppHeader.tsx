@@ -1,6 +1,5 @@
 import React, { DOMAttributes } from 'react';
 import { ColorTable, ZIndexTable } from './CommonHead';
-import { EaseAnime } from './EaseAnime';
 import { HoveredNode } from './HoveredNode';
 export interface AppHeaderNodeProps {
   content: string;
@@ -45,6 +44,11 @@ export interface AppOptionListProps {
    * 形如['A', 'B', '', 'C']的列表，非空串表示一个要显示的菜单选项（菜单选项应该避免重复），空串代表一个间隔标识。
    */
   options: string[];
+  fadeIn?: boolean;
+  /**
+   * 传入所点击菜单的DOMRect
+   */
+  headerNodeRect: DOMRect;
   /**
    * 当用户单击空白处或者间隔标识的时候传入null，否则传入对应菜单选项（菜单选项应该避免重复）
    */
@@ -52,15 +56,11 @@ export interface AppOptionListProps {
 }
 export class AppOptionList extends React.Component<AppOptionListProps, {}> {
   static readonly animeDuration = 150;
-  anime = new EaseAnime(0).animeTo(1, AppOptionList.animeDuration);
   private enable = true;
   private fadeOut(option: string | null) {
     if (!this.enable) return;
     this.enable = false;
-    this.anime.animeTo(0, AppOptionList.animeDuration);
-    setTimeout(() => {
-      this.props.resolve(option);
-    }, AppOptionList.animeDuration);
+    this.props.resolve(option);
   }
   render(): React.ReactNode {
     requestAnimationFrame(() => this.forceUpdate());
@@ -68,20 +68,26 @@ export class AppOptionList extends React.Component<AppOptionListProps, {}> {
       <div
         style={{
           position: 'fixed',
-          left: 0, bottom: 0, right: 0, height: '100%',
+          top: this.props.headerNodeRect.bottom,
+          left: 0, right: 0, bottom: 0,
           zIndex: ZIndexTable.menuOption,
           backgroundColor: ColorTable.curtain,
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          opacity: this.anime.getValue(),
         }}
         onClick={ev => {
           ev.stopPropagation();
           this.fadeOut(null);
         }}
       >
-        <div style={{ maxHeight: '80%', width: '65%', overflowY: 'auto' }}>
+        <div style={{
+          position: 'absolute',
+          left: this.props.headerNodeRect.left + 5,
+          maxHeight: '80%',
+          width: 180,
+          overflowY: 'auto',
+          backgroundColor: 'white',
+          borderRadius: 5,
+          boxShadow: '0 0 4px 2px rgb(0,0,0,.4)',
+        }}>
           {this.props.options.map((str, ind) => {
             if (str === '') {
               return (
@@ -92,8 +98,8 @@ export class AppOptionList extends React.Component<AppOptionListProps, {}> {
                   }}
                 >
                   <div style={{
-                    marginTop: 15,
-                    marginBottom: 15,
+                    marginTop: 5,
+                    marginBottom: 5,
                     height: 3,
                     background: 'black',
                     width: '75%',
@@ -110,9 +116,7 @@ export class AppOptionList extends React.Component<AppOptionListProps, {}> {
                   style={hoverMark => ({
                     background: hoverMark ? 'rgb(230,230,230)' : 'white',
                     width: '90%',
-                    padding: 15,
-                    marginTop: 10,
-                    marginBottom: 10,
+                    padding: 10,
                     borderRadius: 5,
                     fontSize: 20,
                     cursor: 'pointer',
