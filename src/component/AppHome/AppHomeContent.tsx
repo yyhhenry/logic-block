@@ -6,7 +6,7 @@ import { HoveredNode } from "../BasicModule/HoveredNode";
 export interface AppFileCardProps {
   fileInfo: AppFileInfo;
 }
-export class AppFileCard extends React.Component<AppFileCardProps, {}> {
+export class AppFileCard extends React.Component<AppFileCardProps> {
   render() {
     return (
       <HoveredNode style={() => ({ display: 'inline-block' })}
@@ -43,7 +43,7 @@ export class AppFileCard extends React.Component<AppFileCardProps, {}> {
   }
 }
 
-export class AppADBoard extends React.Component<{}, {}> {
+export class AppADBoard extends React.Component {
   render() {
     const textContent = '广告位招租  有意者速来';
     return (

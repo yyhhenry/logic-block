@@ -10,7 +10,7 @@ export interface AppButtonPorps {
   textContent: string;
   onClick?: React.MouseEventHandler<HTMLDivElement>;
 }
-export class AppButton extends React.Component<AppButtonPorps, {}> {
+export class AppButton extends React.Component<AppButtonPorps> {
   render(): React.ReactNode {
     let { common, hovered } = this.props.backgroundColor;
     return (

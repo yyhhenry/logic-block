@@ -14,7 +14,7 @@ interface AppAlertInfo {
 interface ConfirmBlockProps {
   confirmInfo: AppConfirmInfo;
 }
-class ConfirmBlock extends React.Component<ConfirmBlockProps, {}>{
+class ConfirmBlock extends React.Component<ConfirmBlockProps>{
   static readonly animeDuration = 150;
   anime = new EaseAnime(0).animeTo(1, ConfirmBlock.animeDuration);
   private enable = true;
@@ -77,7 +77,7 @@ class ConfirmBlock extends React.Component<ConfirmBlockProps, {}>{
     );
   }
 }
-export class AppAlert extends React.Component<{}, {}> {
+export class AppAlert extends React.Component {
   private static alertList: AppAlertInfo[] = [];
   private static confirmList: AppConfirmInfo[] = [];
   render(): React.ReactNode {
