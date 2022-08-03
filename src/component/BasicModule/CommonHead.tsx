@@ -1,4 +1,4 @@
-export function isObject(obj: unknown): obj is Record<string, unknown> {
+export function isObject(obj: unknown): obj is Record<keyof any, unknown> {
   if (typeof obj !== 'object' || obj === null) return false;
   return true;
 }
