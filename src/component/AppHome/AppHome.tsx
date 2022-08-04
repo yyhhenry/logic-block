@@ -15,8 +15,7 @@ export class AppHome extends React.Component {
 (() => {
   let database = AppDataBase.getDataBase('yyhhenry-logic-block');
   database.modifyTransaction('file-list', store => {
-    // store.clear();
-    // // store.put({ filename: '0000', color: 'gray' });
-    // // store.put({ filename: '0001', color: 'pink' });
+    store.clear();
+    store.put({ filename: 'yyh', color: 'gray' });
   });
 })();

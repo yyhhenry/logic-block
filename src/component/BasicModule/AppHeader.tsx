@@ -167,6 +167,7 @@ export class AppHeader<MenuOptionType extends string> extends React.Component<Ap
     headerNodeRect: undefined,
   };
   render(): React.ReactNode {
+    requestAnimationFrame(() => this.forceUpdate());
     const headerHeight = 60;
     const contentMargin = 20;
     const menuList: MenuOptionType[] = this.props.menu.map(menuElement => menuElement.name);
@@ -233,6 +234,7 @@ export class AppHeader<MenuOptionType extends string> extends React.Component<Ap
           style={{
             marginTop: headerHeight + contentMargin,
             marginBottom: contentMargin,
+            minHeight: window.innerHeight - (headerHeight + contentMargin) - contentMargin,
             position: 'relative',
           }}
         >
