@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { AppButton } from "./AppButton";
 import { ColorTable, ZIndexTable } from "./CommonHead";
 import { EaseAnime } from "./EaseAnime";
@@ -14,95 +14,103 @@ interface AppAlertInfo {
 interface ConfirmBlockProps {
   confirmInfo: AppConfirmInfo;
 }
-class ConfirmBlock extends React.Component<ConfirmBlockProps>{
-  static readonly animeDuration = 150;
-  anime = new EaseAnime(0).animeTo(1, ConfirmBlock.animeDuration);
-  private enable = true;
-  private fadeOut(option: boolean) {
-    if (!this.enable) return;
-    this.enable = false;
-    this.anime.animeTo(0, ConfirmBlock.animeDuration);
+const ConfirmBlock: React.FC<ConfirmBlockProps> = props => {
+  const animeDuration = 150;
+  let initState = () => ({
+    renderCount: 0,
+    anime: new EaseAnime(0).animeTo(1, animeDuration),
+    enable: true,
+  });
+  let [state, setState] = useState(() => initState());
+  useEffect(() => {
+    setState(initState());
+  }, [props.confirmInfo]);
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      setState({ ...state, renderCount: state.renderCount + 1 });
+    });
+  }, [state]);
+  let { enable, anime } = state;
+  let fadeOut = (option: boolean) => {
+    if (!enable) return;
+    enable = false;
+    anime.animeTo(0, animeDuration);
     setTimeout(() => {
-      this.props.confirmInfo.resolve(option);
-    }, ConfirmBlock.animeDuration);
-  }
-  render(): React.ReactNode {
-    requestAnimationFrame(() => this.forceUpdate());
-    return (
-      <div
-        style={{
-          position: 'fixed',
-          left: 0, bottom: 0, right: 0, height: '100%',
-          zIndex: ZIndexTable.confirm,
-          backgroundColor: ColorTable.curtain,
+      props.confirmInfo.resolve(option);
+    }, animeDuration);
+  };
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        left: 0, bottom: 0, right: 0, height: '100%',
+        zIndex: ZIndexTable.confirm,
+        backgroundColor: ColorTable.curtain,
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        opacity: anime.getValue(),
+      }}
+
+      onClick={ev => {
+        ev.stopPropagation();
+      }}
+    >
+      <div style={{
+        maxHeight: '80%',
+        maxWidth: '65%',
+        minWidth: '35%',
+        overflowY: 'auto',
+        backgroundColor: 'white',
+        padding: 15,
+        marginTop: 10,
+        marginBottom: 10,
+        borderRadius: 15,
+        fontSize: 20,
+      }}>
+        <div style={{ padding: 20, marginBottom: 15, }}>
+          {props.confirmInfo.content}
+        </div>
+        <div style={{
           display: 'flex',
           justifyContent: 'center',
-          alignItems: 'center',
-          opacity: this.anime.getValue(),
-        }}
-
-        onClick={ev => {
-          ev.stopPropagation();
-        }}
-      >
-        <div style={{
-          maxHeight: '80%',
-          maxWidth: '65%',
-          minWidth: '35%',
-          overflowY: 'auto',
-          backgroundColor: 'white',
-          padding: 15,
-          marginTop: 10,
-          marginBottom: 10,
-          borderRadius: 15,
-          fontSize: 20,
         }}>
-          <div style={{ padding: 20, marginBottom: 15, }}>{this.props.confirmInfo.content}</div>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-          }}>
-            <AppButton textContent="确认" backgroundColor={{
-              common: 'rgb(130,170,200)',
-              hovered: 'rgb(100,130,160)',
-            }} onClick={() => this.fadeOut(true)} />
+          <AppButton textContent="确认" backgroundColor={{
+            common: 'rgb(130,170,200)',
+            hovered: 'rgb(100,130,160)',
+          }} onClick={() => fadeOut(true)} />
 
-            <AppButton textContent="取消" backgroundColor={{
-              common: 'rgb(170,170,170)',
-              hovered: 'rgb(100,100,100)',
-            }} onClick={() => this.fadeOut(false)} />
-          </div>
+          <AppButton textContent="取消" backgroundColor={{
+            common: 'rgb(170,170,170)',
+            hovered: 'rgb(100,100,100)',
+          }} onClick={() => fadeOut(false)} />
         </div>
       </div>
-    );
-  }
-}
+    </div>
+  );
+};
 export class AppAlert extends React.Component {
   private static alertList: AppAlertInfo[] = [];
   private static confirmList: AppConfirmInfo[] = [];
   render(): React.ReactNode {
     requestAnimationFrame(() => this.forceUpdate());
-    let thisTime = new Date().getTime();
+    let thisTime = Date.now();
     AppAlert.alertList = AppAlert.alertList.filter(info => info.endTime > thisTime);
-    let confirmDiv: React.ReactNode = undefined;
-    if (AppAlert.confirmList.length !== 0) {
-      let confirmInfo = AppAlert.confirmList[0];
-      confirmDiv = (<ConfirmBlock confirmInfo={{
-        content: confirmInfo.content,
-        resolve: res => {
-          AppAlert.confirmList.shift();
-          confirmInfo.resolve(res);
-        },
-      }} />);
-    }
+    let getConfirmDiv = () => {
+      if (AppAlert.confirmList.length !== 0) {
+        let confirmInfo = AppAlert.confirmList[0];
+        return (<ConfirmBlock confirmInfo={confirmInfo} />);
+      }
+      return undefined;
+    };
     return (
       <div>
-        {confirmDiv}
+        {getConfirmDiv()}
 
         <div style={{
           zIndex: ZIndexTable.alert,
           position: 'fixed',
-          width: '20%',
+          maxWidth: '35%',
           right: 0,
           bottom: 0,
           fontSize: '16px',
@@ -138,7 +146,10 @@ export class AppAlert extends React.Component {
     return new Promise<boolean>(resolve => {
       this.confirmList.push({
         content,
-        resolve,
+        resolve: res => {
+          AppAlert.confirmList.shift();
+          resolve(res);
+        },
       });
     });
   }
