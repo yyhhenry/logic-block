@@ -23,6 +23,7 @@ export class AppFileCard extends React.Component<AppFileCardProps> {
               transition: 'all .3s',
               boxShadow: hoverMark ? '5px 5px 5px gray' : 'none',
               transform: hoverMark ? 'translate(-5px,-5px)' : 'none',
+              cursor: 'pointer',
             }}
             onClick={() => {
               MyRoute.routeTo('/AppEditor', {

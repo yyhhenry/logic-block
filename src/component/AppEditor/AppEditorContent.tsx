@@ -23,6 +23,38 @@ export const AppEditorContent: React.FC<AppEditorContentProps> = props => {
       });
     }
   }, [props.filename]);
+  let editorTableBuilder = (fileContent: AppFileContent) => {
+    let points = fileContent.content.points.map((point, ind) => {
+      const sideLength = 20;
+      return (
+        <div key={ind} style={{
+          backgroundColor: point.power ? 'red' : 'blueviolet',
+          left: point.x - sideLength / 2,
+          top: point.y - sideLength / 2,
+          width: sideLength,
+          height: sideLength,
+          position: 'absolute',
+          borderRadius: sideLength / 4,
+        }} />
+      );
+    });
+    // let lines = fileContent.content.lines.map((line, ind) => {
+    //   const lineWidth = 10;
+    //   const pointFrom = fileContent.content.points[line.pointFrom];
+    //   const pointTo = fileContent.content.points[line.pointTo];
+    //   const midPoint = { x: (pointFrom.x + pointTo.x) / 2, y: (pointFrom.y + pointTo.y) / 2 };
+    //   return (
+    //     <div key={ind} style={{
+    //       backgroundColor: 'gray',
+    //     }} />
+    //   );
+    // });
+    return (
+      <div>
+        {points}
+      </div>
+    );
+  };
   return (
     <div
       style={{
@@ -32,7 +64,8 @@ export const AppEditorContent: React.FC<AppEditorContentProps> = props => {
         backgroundColor: 'white',
         position: 'absolute',
         borderRadius: boxMargin,
-        overflow: 'auto',
+        overflow: 'hidden',
+        fontSize: 20,
       }}
     >
       {
@@ -50,9 +83,7 @@ export const AppEditorContent: React.FC<AppEditorContentProps> = props => {
                       <h1>{'加载中'}</h1>
                     </div>
                   ) : (
-                    <div style={{ textAlign: 'center' }}>
-                      <h1>{JSON.stringify(fileContent)}</h1>
-                    </div>
+                    editorTableBuilder(fileContent)
                   )
               )
           ) : (

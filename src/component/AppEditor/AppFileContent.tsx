@@ -1,6 +1,6 @@
 import { isObject, isTList } from "../BasicModule/CommonHead";
 
-export namespace RedstoneModule {
+export namespace RedstoneFileModule {
   export interface Point {
     x: number;
     y: number;
@@ -37,8 +37,8 @@ export namespace RedstoneModule {
 }
 export interface AppFileContent {
   filename: string;
-  content: RedstoneModule.RedstoneFileContent;
+  content: RedstoneFileModule.RedstoneFileContent;
 }
 export function isAppFileContent(obj: unknown): obj is AppFileContent {
-  return isObject(obj) && typeof obj.filename == 'string' && RedstoneModule.isRedstoneFileContent(obj.content);
+  return isObject(obj) && typeof obj.filename == 'string' && RedstoneFileModule.isRedstoneFileContent(obj.content);
 }
