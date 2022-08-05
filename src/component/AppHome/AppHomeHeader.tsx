@@ -1,6 +1,7 @@
 import React from 'react';
 import { AppAlert } from '../BasicModule/AppAlert';
 import { AppCommonHeaderProps, AppHeader } from '../BasicModule/AppHeader';
+import { globalAboutDoc } from '../BasicModule/CommonHead';
 
 type HomeMenuOptionType = '文件' | '选项';
 export class AppHomeHeader extends React.Component<AppCommonHeaderProps>{
@@ -11,14 +12,10 @@ export class AppHomeHeader extends React.Component<AppCommonHeaderProps>{
         menu={[
           {
             name: '文件',
-            options: ['新建文件', '导入文件', '', '退出'],
+            options: ['新建文件', '导入文件', '', '关于'],
             resolve: res => {
-              if (res === '退出') {
-                AppAlert.confirm('确认要退出吗').then(v => {
-                  if (v) {
-                    window.close();
-                  }
-                })
+              if (res === '关于') {
+                AppAlert.confirm(globalAboutDoc, false);
               } else if (res === '新建文件') {
                 AppAlert.alert('[新建文件] - 敬请期待');
               } else if (res === '导入文件') {

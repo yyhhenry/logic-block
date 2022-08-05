@@ -13,6 +13,10 @@ export namespace ZIndexTable {
 export namespace ColorTable {
   export const curtain = 'rgb(0,0,0,.2)';
 }
+export const globalAboutDoc = `
+本软件由yyhhenry提供，采用React框架，详见
+https://gitee.com/yyhhenry/logic-block
+`;
 export namespace MyRoute {
   export function getParams() {
     let url = new URL(window.location.href);

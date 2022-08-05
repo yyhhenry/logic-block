@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { AppButton } from "./AppButton";
 import { ColorTable, ZIndexTable } from "./CommonHead";
-import { EaseAnime } from "./EaseAnime";
 import { HoveredNode } from "./HoveredNode";
+import './AppAlert.css';
 interface AppConfirmInfo {
   content: string;
+  enableCancel: boolean;
   resolve: (res: boolean) => void;
 }
 interface AppAlertInfo {
@@ -13,34 +14,29 @@ interface AppAlertInfo {
 }
 interface ConfirmBlockProps {
   confirmInfo: AppConfirmInfo;
+  confirmId: number;
 }
 const ConfirmBlock: React.FC<ConfirmBlockProps> = props => {
   const animeDuration = 150;
   let initState = () => ({
-    renderCount: 0,
-    anime: new EaseAnime(0).animeTo(1, animeDuration),
     enable: true,
   });
   let [state, setState] = useState(() => initState());
   useEffect(() => {
     setState(initState());
-  }, [props.confirmInfo]);
-  useEffect(() => {
-    requestAnimationFrame(() => {
-      setState({ ...state, renderCount: state.renderCount + 1 });
-    });
-  }, [state]);
-  let { enable, anime } = state;
+  }, [props.confirmId]);
+  let { enable } = state;
   let fadeOut = (option: boolean) => {
     if (!enable) return;
     enable = false;
-    anime.animeTo(0, animeDuration);
+    setState({ enable: enable });
     setTimeout(() => {
       props.confirmInfo.resolve(option);
     }, animeDuration);
   };
   return (
     <div
+      className={enable ? "app-alert-confirm-show" : "app-alert-confirm-hide"}
       style={{
         position: 'fixed',
         left: 0, bottom: 0, right: 0, height: '100%',
@@ -49,7 +45,6 @@ const ConfirmBlock: React.FC<ConfirmBlockProps> = props => {
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        opacity: anime.getValue(),
       }}
 
       onClick={ev => {
@@ -80,10 +75,14 @@ const ConfirmBlock: React.FC<ConfirmBlockProps> = props => {
             hovered: 'rgb(100,130,160)',
           }} onClick={() => fadeOut(true)} />
 
-          <AppButton textContent="取消" backgroundColor={{
-            common: 'rgb(170,170,170)',
-            hovered: 'rgb(100,100,100)',
-          }} onClick={() => fadeOut(false)} />
+          {
+            props.confirmInfo.enableCancel
+              ? (<AppButton textContent="取消" backgroundColor={{
+                common: 'rgb(170,170,170)',
+                hovered: 'rgb(100,100,100)',
+              }} onClick={() => fadeOut(false)} />)
+              : undefined
+          }
         </div>
       </div>
     </div>
@@ -92,6 +91,7 @@ const ConfirmBlock: React.FC<ConfirmBlockProps> = props => {
 export class AppAlert extends React.Component {
   private static alertList: AppAlertInfo[] = [];
   private static confirmList: AppConfirmInfo[] = [];
+  private static confirmId = 0;
   render(): React.ReactNode {
     requestAnimationFrame(() => this.forceUpdate());
     let thisTime = Date.now();
@@ -99,7 +99,7 @@ export class AppAlert extends React.Component {
     let getConfirmDiv = () => {
       if (AppAlert.confirmList.length !== 0) {
         let confirmInfo = AppAlert.confirmList[0];
-        return (<ConfirmBlock confirmInfo={confirmInfo} />);
+        return (<ConfirmBlock confirmInfo={confirmInfo} confirmId={AppAlert.confirmId} />);
       }
       return undefined;
     };
@@ -142,12 +142,14 @@ export class AppAlert extends React.Component {
       endTime: new Date().getTime() + duration,
     });
   }
-  static confirm(content: string) {
+  static confirm(content: string, enableCancel = true) {
     return new Promise<boolean>(resolve => {
       this.confirmList.push({
         content,
+        enableCancel,
         resolve: res => {
           AppAlert.confirmList.shift();
+          AppAlert.confirmId++;
           resolve(res);
         },
       });
