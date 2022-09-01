@@ -1,4 +1,7 @@
 import { LogicBlockFileModule } from "./AppFileContent";
+
+const MaxOperatorInOneTick = 128;
+
 type LogicPoint = LogicBlockFileModule.Point;
 type LogicLine = LogicBlockFileModule.Line;
 type LogicText = LogicBlockFileModule.Text;
@@ -32,10 +35,14 @@ export class LogicBlockRuntime {
     setTimeout(() => this.renderLoop());
   }
   private renderLoop() {
-    const u = this.queue.shift();
-    if (u !== undefined) {
-      this.vis.delete(u);
-      this.rebuildMap(u);
+    for (let i = 0; i < MaxOperatorInOneTick; i++) {
+      const u = this.queue.shift();
+      if (u !== undefined) {
+        this.vis.delete(u);
+        this.rebuildMap(u);
+      } else {
+        break;
+      }
     }
     setTimeout(() => this.renderLoop());
   }

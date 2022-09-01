@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { EventEmitter } from 'stream';
 import { AppDataBase } from '../AppDataBase';
+import { AppAlert } from '../BasicModule/AppAlert';
 import { Geometry } from '../BasicModule/Geometry';
 import { AppFileContent, isAppFileContent, LogicBlockFileModule } from './AppFileContent';
 import { LogicBlockRuntime } from './LogicBlockRuntime';
@@ -132,16 +134,19 @@ namespace EditorView {
   };
   export interface TableViewProps {
     runtime: LogicBlockRuntime;
+    controller: {
+      save: () => void;
+    };
   }
   export const TableView: React.FC<TableViewProps> = props => {
-    const { runtime } = props;
-    if (runtime === undefined) {
-      return <div />;
-    }
+    const { runtime, controller } = props;
     const fileContent = runtime.renderFileContent();
     const active = runtime.renderActive();
     const points = fileContent.points.map((point, ind) => (
-      <g key={ind} onClick={() => runtime?.setPointPower(ind)}>
+      <g key={ind} onClick={() => {
+        runtime.setPointPower(ind);
+        controller.save();
+      }}>
         <PointView point={point} active={active[ind] ?? false} />
       </g>
     ));
@@ -164,39 +169,135 @@ namespace EditorView {
     );
   };
 }
+const RecordDepth = 10;
+/**
+ * TODO
+ */
+export class UndoRecord<RecordType,> {
+  private records: RecordType[];
+  private pointer: number;
+  constructor(origin: RecordType) {
+    this.records = [origin];
+    this.pointer = 0;
+  }
+  push(newData: RecordType) {
+    while (this.pointer !== this.records.length - 1) {
+      this.records.pop();
+    }
+    this.pointer++;
+    this.records.push(newData);
+    if (this.records.length > RecordDepth) {
+      this.pointer--;
+      this.records.shift();
+    }
+    console.log(this.pointer, this.records);
+  }
+  undo(): RecordType | undefined {
+    if (this.pointer === 0) {
+      return undefined;
+    } else {
+      return this.records[--this.pointer];
+    }
+  }
+  redo(): RecordType | undefined {
+    if (this.pointer === this.records.length - 1) {
+      return undefined;
+    } else {
+      return this.records[++this.pointer];
+    }
+  }
+}
 export interface AppEditorContentProps {
   filename?: string;
+  emitter: EventEmitter;
 }
 export const AppEditorContent: React.FC<AppEditorContentProps> = props => {
   const initState = () => {
     return {
-      fileContent: undefined as AppFileContent | undefined,
+      undoRecord: undefined as UndoRecord<LogicBlockFileModule.LogicBlockFileContent> | undefined,
       runtime: undefined as LogicBlockRuntime | undefined,
       failed: false,
       renderLoopCount: 0,
     };
   };
+  const { emitter } = props;
   const [state, setState] = useState(initState);
-  const { fileContent, runtime, failed, renderLoopCount } = state;
+  const { undoRecord, runtime, failed, renderLoopCount } = state;
   const boxMargin = 10;
   useEffect(() => {
     setState(initState());
     if (props.filename !== undefined) {
       database.queryTransaction('file', isAppFileContent, props.filename).then(v => {
-        setState({
-          fileContent: v,
-          runtime: v && new LogicBlockRuntime(v.content),
-          failed: (v === undefined),
-          renderLoopCount: 0,
-        });
+        if (v) {
+          const runtime = new LogicBlockRuntime(v.content);
+          const undoRecord = new UndoRecord(runtime.renderFileContent());
+          setState({
+            undoRecord,
+            runtime,
+            failed: false,
+            renderLoopCount: 0,
+          });
+        } else {
+          setState({
+            undoRecord: undefined,
+            runtime: undefined,
+            failed: true,
+            renderLoopCount: 0,
+          });
+        }
       });
     }
   }, [props.filename]);
   requestAnimationFrame(() => {
     setState({ ...state, renderLoopCount: renderLoopCount + 1 });
   });
-  if (fileContent) {
-  }
+  const undo = useCallback(() => {
+    if (undoRecord) {
+      const content = undoRecord.undo();
+      if (content) {
+        setState({ ...state, runtime: new LogicBlockRuntime(content) });
+      } else {
+        AppAlert.confirm('已经没有可以撤销的项', false);
+      }
+    }
+  }, [undoRecord, state]);
+  const redo = useCallback(() => {
+    if (undoRecord) {
+      const content = undoRecord.redo();
+      if (content) {
+        setState({ ...state, runtime: new LogicBlockRuntime(content) });
+      } else {
+        AppAlert.confirm('已经没有可以撤销的项', false);
+      }
+    }
+  }, [undoRecord, state]);
+  useEffect(() => {
+    emitter.addListener('undo', undo);
+    emitter.addListener('redo', redo);
+    return () => {
+      emitter.removeListener('undo', undo);
+      emitter.removeListener('redo', redo);
+    };
+  }, [emitter, redo, undo]);
+  const controller = {
+    save: () => {
+      if (runtime !== undefined && props.filename !== undefined) {
+        const content = runtime.renderFileContent();
+        if (undoRecord) {
+          undoRecord.push(content);
+        }
+        (value => {
+          database.modifyTransaction('file', store => {
+            store.clear();
+            store.put(value);
+          });
+        })({
+          filename: props.filename,
+          content,
+        } as AppFileContent);
+      }
+    }
+  };
   return (
     <div
       style={{
@@ -225,7 +326,7 @@ export const AppEditorContent: React.FC<AppEditorContentProps> = props => {
                       <h1>{'加载中'}</h1>
                     </div>
                   ) : (
-                    <EditorView.TableView runtime={runtime} />
+                    <EditorView.TableView runtime={runtime} controller={controller} />
                   )
               )
           ) : (

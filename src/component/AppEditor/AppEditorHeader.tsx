@@ -1,10 +1,14 @@
 import React from 'react';
+import { EventEmitter } from 'stream';
 import { AppAlert } from '../BasicModule/AppAlert';
 import { AppCommonHeaderProps, AppHeader } from '../BasicModule/AppHeader';
 import { globalAboutDoc, MyRoute } from '../BasicModule/CommonHead';
 
 type EditorMenuOptionType = '文件' | '编辑' | '插入';
-export class AppEditorHeader extends React.Component<AppCommonHeaderProps>{
+export interface AppEditorHeaderProps extends AppCommonHeaderProps {
+  emitter: EventEmitter;
+}
+export class AppEditorHeader extends React.Component<AppEditorHeaderProps>{
   render(): React.ReactNode {
     return (
       <AppHeader<EditorMenuOptionType>
@@ -30,9 +34,9 @@ export class AppEditorHeader extends React.Component<AppCommonHeaderProps>{
             options: ['撤销', '重做'],
             resolve: res => {
               if (res === '撤销') {
-                AppAlert.alert('[撤销] - 敬请期待');
+                this.props.emitter.emit('undo');
               } else if (res === '重做') {
-                AppAlert.alert('[重做] - 敬请期待');
+                this.props.emitter.emit('redo');
               }
             },
           },
