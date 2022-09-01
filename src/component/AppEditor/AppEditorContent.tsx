@@ -1,22 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import { AppDataBase } from '../AppDataBase';
 import { Geometry } from '../BasicModule/Geometry';
-import { AppFileContent, isAppFileContent, RedstoneFileModule } from './AppFileContent';
+import { AppFileContent, isAppFileContent, LogicBlockFileModule } from './AppFileContent';
+import { LogicBlockRuntime } from './LogicBlockRuntime';
 const GeoPoint = Geometry.Point;
-export namespace EditorColorTable {
+namespace EditorColorTable {
   export const activeLine = 'rgb(30,60,250)';
   export const activeNode = 'rgb(30,60,250)';
   export const powerNode = 'rgb(250,20,100)';
   export const inactiveNode = 'rgb(160,160,70)';
   export const inactiveLine = 'gray';
 }
-export interface AppEditorContentProps {
-  filename?: string;
-}
 const database = AppDataBase.getDataBase('yyhhenry-logic-block');
-export namespace EditorView {
+namespace EditorView {
+  export interface MenuViewProps {
+
+  }
+  export const MenuView: React.FC<MenuViewProps> = props => {
+    return (
+      <g>
+      </g>
+    );
+  };
   export interface PointViewProps {
-    point: RedstoneFileModule.Point;
+    point: LogicBlockFileModule.Point;
     active: boolean;
   }
   export const PointView: React.FC<PointViewProps> = props => {
@@ -37,8 +44,8 @@ export namespace EditorView {
     );
   };
   export interface LineViewProps {
-    pointFrom: RedstoneFileModule.Point;
-    pointTo: RedstoneFileModule.Point;
+    pointFrom: LogicBlockFileModule.Point;
+    pointTo: LogicBlockFileModule.Point;
     notGate: boolean;
     active: boolean;
   }
@@ -111,45 +118,85 @@ export namespace EditorView {
       </g>
     );
   };
+  export interface TextViewProps {
+    x: number;
+    y: number;
+    str: string;
+    size: number;
+  }
+  export const TextView: React.FC<TextViewProps> = props => {
+    const { x, y, str, size } = props;
+    return (
+      <text style={{ userSelect: 'none' }} x={x} y={y} fontSize={size}>{str}</text>
+    );
+  };
+  export interface TableViewProps {
+    runtime: LogicBlockRuntime;
+  }
+  export const TableView: React.FC<TableViewProps> = props => {
+    const { runtime } = props;
+    if (runtime === undefined) {
+      return <div />;
+    }
+    const fileContent = runtime.renderFileContent();
+    const active = runtime.renderActive();
+    const points = fileContent.points.map((point, ind) => (
+      <g key={ind} onClick={() => runtime?.setPointPower(ind)}>
+        <PointView point={point} active={active[ind] ?? false} />
+      </g>
+    ));
+    const lines = fileContent.lines.map((line, ind) => {
+      const pointFrom = fileContent.points[line.pointFrom];
+      const pointTo = fileContent.points[line.pointTo];
+      return <LineView key={ind} pointFrom={pointFrom} pointTo={pointTo} notGate={line.notGate} active={active[line.pointFrom] ?? false} />;
+    });
+    const texts = fileContent.texts.map((text, ind) => {
+      return (
+        <TextView key={ind} x={text.x} y={text.y} str={text.str} size={text.size} />
+      );
+    });
+    return (
+      <svg style={{ width: '100%', height: '100%' }}>
+        {lines}
+        {points}
+        {texts}
+      </svg>
+    );
+  };
+}
+export interface AppEditorContentProps {
+  filename?: string;
 }
 export const AppEditorContent: React.FC<AppEditorContentProps> = props => {
   const initState = () => {
     return {
       fileContent: undefined as AppFileContent | undefined,
+      runtime: undefined as LogicBlockRuntime | undefined,
       failed: false,
       renderLoopCount: 0,
     };
   };
   const [state, setState] = useState(initState);
-  let { fileContent, failed, renderLoopCount } = state;
+  const { fileContent, runtime, failed, renderLoopCount } = state;
   const boxMargin = 10;
   useEffect(() => {
     setState(initState());
     if (props.filename !== undefined) {
       database.queryTransaction('file', isAppFileContent, props.filename).then(v => {
-        setState({ fileContent: v, failed: (v === undefined), renderLoopCount: 0 });
+        setState({
+          fileContent: v,
+          runtime: v && new LogicBlockRuntime(v.content),
+          failed: (v === undefined),
+          renderLoopCount: 0,
+        });
       });
     }
   }, [props.filename]);
   requestAnimationFrame(() => {
     setState({ ...state, renderLoopCount: renderLoopCount + 1 });
   });
-  const editorTableBuilder = (fileContent: AppFileContent) => {
-    const points = fileContent.content.points.map((point, ind) => (
-      <EditorView.PointView key={ind} point={point} active={false} />
-    ));
-    const lines = fileContent.content.lines.map((line, ind) => {
-      const pointFrom = fileContent.content.points[line.pointFrom];
-      const pointTo = fileContent.content.points[line.pointTo];
-      return <EditorView.LineView key={ind} pointFrom={pointFrom} pointTo={pointTo} notGate={line.notGate} active={false} />;
-    });
-    return (
-      <svg style={{ width: '100%', height: '100%' }}>
-        {lines}
-        {points}
-      </svg>
-    );
-  };
+  if (fileContent) {
+  }
   return (
     <div
       style={{
@@ -172,13 +219,13 @@ export const AppEditorContent: React.FC<AppEditorContentProps> = props => {
                   <h1>{'File Not Found: 不正确的filename'}</h1>
                 </div>
               ) : (
-                fileContent === undefined ?
+                runtime === undefined ?
                   (
                     <div style={{ textAlign: 'center' }}>
                       <h1>{'加载中'}</h1>
                     </div>
                   ) : (
-                    editorTableBuilder(fileContent)
+                    <EditorView.TableView runtime={runtime} />
                   )
               )
           ) : (
@@ -191,10 +238,10 @@ export const AppEditorContent: React.FC<AppEditorContentProps> = props => {
   );
 };
 
-(() => {
-  let database = AppDataBase.getDataBase('yyhhenry-logic-block');
-  database.modifyTransaction('file', store => {
-    store.clear();
-    store.put({ filename: 'yyh', content: { "points": [{ "x": 428, "y": 238, "power": false }, { "x": 424, "y": 405, "power": true }, { "x": 560, "y": 280, "power": false }, { "x": 601, "y": 308, "power": false }, { "x": 656, "y": 308, "power": false }, { "x": 564, "y": 334, "power": false }, { "x": 566, "y": 459, "power": false }, { "x": 660, "y": 458, "power": false }, { "x": 795, "y": 360, "power": false }, { "x": 835, "y": 385, "power": false }, { "x": 882, "y": 386, "power": false }, { "x": 792, "y": 410, "power": false }, { "x": 976, "y": 342, "power": false }, { "x": 239, "y": 431, "power": false }, { "x": 239, "y": 223, "power": false }, { "x": 1205, "y": 341, "power": false }], "lines": [{ "pointFrom": 2, "pointTo": 3, "notGate": true }, { "pointFrom": 3, "pointTo": 4, "notGate": true }, { "pointFrom": 5, "pointTo": 3, "notGate": true }, { "pointFrom": 0, "pointTo": 2, "notGate": false }, { "pointFrom": 1, "pointTo": 5, "notGate": false }, { "pointFrom": 1, "pointTo": 6, "notGate": false }, { "pointFrom": 6, "pointTo": 7, "notGate": true }, { "pointFrom": 8, "pointTo": 9, "notGate": true }, { "pointFrom": 9, "pointTo": 10, "notGate": true }, { "pointFrom": 11, "pointTo": 9, "notGate": true }, { "pointFrom": 4, "pointTo": 8, "notGate": false }, { "pointFrom": 7, "pointTo": 11, "notGate": false }, { "pointFrom": 10, "pointTo": 12, "notGate": false }, { "pointFrom": 1, "pointTo": 13, "notGate": false }, { "pointFrom": 0, "pointTo": 14, "notGate": false }, { "pointFrom": 12, "pointTo": 15, "notGate": false }], "texts": [{ "str": "输入1", "x": 200, "y": 180, "size": 25 }, { "str": "输入2", "x": 200, "y": 480, "size": 25 }, { "str": "AND", "x": 600, "y": 280, "size": 25 }, { "str": "NOT", "x": 600, "y": 500, "size": 25 }, { "str": "AND", "x": 800, "y": 440, "size": 25 }, { "str": "无论输入是什么，输出都是False", "x": 600, "y": 580, "size": 16 }] } } as AppFileContent);
-  });
-})();
+// (() => {
+//   let database = AppDataBase.getDataBase('yyhhenry-logic-block');
+//   database.modifyTransaction('file', store => {
+//     store.clear();
+//     store.put({ filename: 'yyh', content: { "points": [{ "x": 428, "y": 238, "power": false }, { "x": 424, "y": 405, "power": true }, { "x": 560, "y": 280, "power": false }, { "x": 601, "y": 308, "power": false }, { "x": 656, "y": 308, "power": false }, { "x": 564, "y": 334, "power": false }, { "x": 566, "y": 459, "power": false }, { "x": 660, "y": 458, "power": false }, { "x": 795, "y": 360, "power": false }, { "x": 835, "y": 385, "power": false }, { "x": 882, "y": 386, "power": false }, { "x": 792, "y": 410, "power": false }, { "x": 976, "y": 342, "power": false }, { "x": 239, "y": 431, "power": false }, { "x": 239, "y": 223, "power": false }, { "x": 1205, "y": 341, "power": false }], "lines": [{ "pointFrom": 2, "pointTo": 3, "notGate": true }, { "pointFrom": 3, "pointTo": 4, "notGate": true }, { "pointFrom": 5, "pointTo": 3, "notGate": true }, { "pointFrom": 0, "pointTo": 2, "notGate": false }, { "pointFrom": 1, "pointTo": 5, "notGate": false }, { "pointFrom": 1, "pointTo": 6, "notGate": false }, { "pointFrom": 6, "pointTo": 7, "notGate": true }, { "pointFrom": 8, "pointTo": 9, "notGate": true }, { "pointFrom": 9, "pointTo": 10, "notGate": true }, { "pointFrom": 11, "pointTo": 9, "notGate": true }, { "pointFrom": 4, "pointTo": 8, "notGate": false }, { "pointFrom": 7, "pointTo": 11, "notGate": false }, { "pointFrom": 10, "pointTo": 12, "notGate": false }, { "pointFrom": 1, "pointTo": 13, "notGate": false }, { "pointFrom": 0, "pointTo": 14, "notGate": false }, { "pointFrom": 12, "pointTo": 15, "notGate": false }], "texts": [{ "str": "输入1", "x": 200, "y": 180, "size": 25 }, { "str": "输入2", "x": 200, "y": 480, "size": 25 }, { "str": "AND", "x": 600, "y": 280, "size": 25 }, { "str": "NOT", "x": 600, "y": 500, "size": 25 }, { "str": "AND", "x": 800, "y": 440, "size": 25 }, { "str": "无论输入是什么，输出都是False", "x": 600, "y": 580, "size": 16 }] } } as AppFileContent);
+//   });
+// })();

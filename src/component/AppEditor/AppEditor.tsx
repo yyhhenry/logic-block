@@ -3,7 +3,10 @@ import { AppEditorContent } from './AppEditorContent';
 import { AppEditorHeader } from './AppEditorHeader';
 export class AppEditor extends React.Component {
   render(): React.ReactNode {
-    let filename = new URL(window.location.href).searchParams.get('filename') ?? undefined;
+    const filename = new URL(window.location.href).searchParams.get('filename') ?? undefined;
+    if (filename) {
+      document.title = `${filename} - LogicBlockEditor`;
+    }
     return (
       <AppEditorHeader pageContent={
         <AppEditorContent filename={filename} />

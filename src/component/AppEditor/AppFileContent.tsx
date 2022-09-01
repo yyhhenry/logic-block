@@ -1,6 +1,6 @@
 import { isObject, isTList } from "../BasicModule/CommonHead";
 
-export namespace RedstoneFileModule {
+export namespace LogicBlockFileModule {
   export interface Point {
     x: number;
     y: number;
@@ -17,7 +17,7 @@ export namespace RedstoneFileModule {
     x: number;
     y: number;
   }
-  export interface RedstoneFileContent {
+  export interface LogicBlockFileContent {
     points: Point[];
     lines: Line[];
     texts: Text[];
@@ -31,14 +31,14 @@ export namespace RedstoneFileModule {
   export function isText(obj: unknown): obj is Line {
     return isObject(obj) && typeof obj.x == 'number' && typeof obj.y == 'number' && typeof obj.str == 'string' && typeof obj.size == 'number';
   }
-  export function isRedstoneFileContent(obj: unknown): obj is RedstoneFileContent {
+  export function isRedstoneFileContent(obj: unknown): obj is LogicBlockFileContent {
     return isObject(obj) && isTList(obj.points, isPoint) && isTList(obj.lines, isLine) && isTList(obj.texts, isText);
   }
 }
 export interface AppFileContent {
   filename: string;
-  content: RedstoneFileModule.RedstoneFileContent;
+  content: LogicBlockFileModule.LogicBlockFileContent;
 }
 export function isAppFileContent(obj: unknown): obj is AppFileContent {
-  return isObject(obj) && typeof obj.filename == 'string' && RedstoneFileModule.isRedstoneFileContent(obj.content);
+  return isObject(obj) && typeof obj.filename == 'string' && LogicBlockFileModule.isRedstoneFileContent(obj.content);
 }

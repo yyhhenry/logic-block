@@ -201,7 +201,7 @@ export class AppHeader<MenuOptionType extends string> extends React.Component<Ap
       }
     };
     return (
-      <div>
+      <div style={{ userSelect: 'none' }}>
         <header
           style={{
             position: 'fixed',
