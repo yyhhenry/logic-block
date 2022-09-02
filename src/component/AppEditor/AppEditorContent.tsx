@@ -190,20 +190,21 @@ export class UndoRecord<RecordType,> {
       this.pointer--;
       this.records.shift();
     }
-    console.log(this.pointer, this.records);
   }
   undo(): RecordType | undefined {
     if (this.pointer === 0) {
       return undefined;
     } else {
-      return this.records[--this.pointer];
+      this.pointer--;
+      return this.records[this.pointer];
     }
   }
   redo(): RecordType | undefined {
     if (this.pointer === this.records.length - 1) {
       return undefined;
     } else {
-      return this.records[++this.pointer];
+      this.pointer++;
+      return this.records[this.pointer];
     }
   }
 }
@@ -248,6 +249,17 @@ export const AppEditorContent: React.FC<AppEditorContentProps> = props => {
       });
     }
   }, [props.filename]);
+  const saveToDataBase = useCallback((content: LogicBlockFileModule.LogicBlockFileContent) => {
+    (value => {
+      database.modifyTransaction('file', store => {
+        store.clear();
+        store.put(value);
+      });
+    })({
+      filename: props.filename,
+      content,
+    } as AppFileContent);
+  }, [props.filename]);
   requestAnimationFrame(() => {
     setState({ ...state, renderLoopCount: renderLoopCount + 1 });
   });
@@ -256,21 +268,23 @@ export const AppEditorContent: React.FC<AppEditorContentProps> = props => {
       const content = undoRecord.undo();
       if (content) {
         setState({ ...state, runtime: new LogicBlockRuntime(content) });
+        saveToDataBase(content);
       } else {
         AppAlert.confirm('已经没有可以撤销的项', false);
       }
     }
-  }, [undoRecord, state]);
+  }, [undoRecord, state, saveToDataBase]);
   const redo = useCallback(() => {
     if (undoRecord) {
       const content = undoRecord.redo();
       if (content) {
         setState({ ...state, runtime: new LogicBlockRuntime(content) });
+        saveToDataBase(content);
       } else {
         AppAlert.confirm('已经没有可以撤销的项', false);
       }
     }
-  }, [undoRecord, state]);
+  }, [undoRecord, state, saveToDataBase]);
   useEffect(() => {
     emitter.addListener('undo', undo);
     emitter.addListener('redo', redo);
@@ -286,15 +300,7 @@ export const AppEditorContent: React.FC<AppEditorContentProps> = props => {
         if (undoRecord) {
           undoRecord.push(content);
         }
-        (value => {
-          database.modifyTransaction('file', store => {
-            store.clear();
-            store.put(value);
-          });
-        })({
-          filename: props.filename,
-          content,
-        } as AppFileContent);
+        saveToDataBase(content);
       }
     }
   };

@@ -33,16 +33,18 @@ export class AppFileCard extends React.Component<AppFileCardProps> {
           >
             <div style={{
               width: '100%',
-              height: '90%',
+              height: '80%',
               borderRadius: 15,
               backgroundColor: this.props.fileInfo.color,
             }}>
             </div>
             <div style={{
               width: '100%',
-              height: '10%',
+              height: '20%',
               display: 'flex',
               justifyContent: 'center',
+              alignItems: 'center',
+              fontSize: 18,
             }}>
               <span>{this.props.fileInfo.filename}</span>
             </div>

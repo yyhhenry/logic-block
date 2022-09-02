@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AppEditorContent } from './AppEditorContent';
 import { AppEditorHeader } from './AppEditorHeader';
 import EventEmitter from 'events';
@@ -44,15 +44,19 @@ export const AppEditor: React.FC = () => {
   if (filename) {
     document.title = `${filename} - LogicBlockEditor`;
   }
+  const onKeyUp = useCallback((ev: KeyboardEvent) => {
+    if (ev.key.toLowerCase() === 'z' && ev.ctrlKey) {
+      emitter.emit('undo');
+    }
+    if (ev.key.toLowerCase() === 'y' && ev.ctrlKey) {
+      emitter.emit('redo');
+    }
+  }, [emitter]);
+  useEffect(() => {
+    window.addEventListener('keyup', onKeyUp);
+  }, [onKeyUp]);
   return (
-    <div tabIndex={-1} onKeyUp={ev => {
-      if (ev.key.toLowerCase() === 'z' && ev.ctrlKey) {
-        emitter.emit('undo');
-      }
-      if (ev.key.toLowerCase() === 'y' && ev.ctrlKey) {
-        emitter.emit('redo');
-      }
-    }}>
+    <div>
       <AppEditorHeader emitter={emitter} pageContent={
         <AppEditorContent emitter={emitter} filename={filename} />
       } />

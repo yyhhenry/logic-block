@@ -16,12 +16,12 @@ export class LogicBlockRuntime {
   private queue: number[];
   private vis: Set<number>;
   constructor(originFileContent: LogicBlockFileModule.LogicBlockFileContent) {
-    this.points = originFileContent.points;
-    this.lines = originFileContent.lines;
-    this.texts = originFileContent.texts;
+    this.points = originFileContent.points.map(v => ({ ...v }));
+    this.lines = originFileContent.lines.map(v => ({ ...v }));
+    this.texts = originFileContent.texts.map(v => ({ ...v }));
     this.fa = this.points.map((_v, ind) => ind);
     this.child = this.points.map((_v, ind) => [ind]);
-    this.active = originFileContent.points.map((v) => v.power);
+    this.active = originFileContent.points.map(v => v.power);
     this.lineWithPoint = this.points.map(() => []);
     this.lines.forEach(line => {
       if (line) {
@@ -112,11 +112,7 @@ export class LogicBlockRuntime {
     return this.points.flatMap((v, ind) =>
       (v === undefined ? [] : [this.active[ind]]) as boolean[]);
   }
-  /**
-   * 
-   * @returns 数据的深拷贝
-   */
-  renderFileContent() {
+  renderFileContent(): LogicBlockFileModule.LogicBlockFileContent {
     let ind = 0;
     const pointer = this.points.map(v => v === undefined ? ind : ind++);
     const lineRebuilder = (v: LogicLine): LogicLine => ({
