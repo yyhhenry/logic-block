@@ -23,16 +23,16 @@ export namespace LogicBlockFileModule {
     texts: Text[];
   }
   export function isPoint(obj: unknown): obj is Point {
-    return isObject(obj) && typeof obj.x == 'number' && typeof obj.y == 'number' && typeof obj.power == 'boolean';
+    return isObject(obj) && typeof obj.x == 'number' && typeof obj.y == 'number' && typeof obj.power == 'boolean' && Object.keys(obj).length === 3;
   }
   export function isLine(obj: unknown): obj is Line {
-    return isObject(obj) && typeof obj.pointFrom == 'number' && typeof obj.pointFrom == 'number' && typeof obj.notGate == 'boolean';
+    return isObject(obj) && typeof obj.pointFrom == 'number' && typeof obj.pointFrom == 'number' && typeof obj.notGate == 'boolean' && Object.keys(obj).length === 3;
   }
-  export function isText(obj: unknown): obj is Line {
-    return isObject(obj) && typeof obj.x == 'number' && typeof obj.y == 'number' && typeof obj.str == 'string' && typeof obj.size == 'number';
+  export function isText(obj: unknown): obj is Text {
+    return isObject(obj) && typeof obj.x == 'number' && typeof obj.y == 'number' && typeof obj.str == 'string' && typeof obj.size == 'number' && Object.keys(obj).length === 4;
   }
   export function isRedstoneFileContent(obj: unknown): obj is LogicBlockFileContent {
-    return isObject(obj) && isTList(obj.points, isPoint) && isTList(obj.lines, isLine) && isTList(obj.texts, isText);
+    return isObject(obj) && isTList(obj.points, isPoint) && isTList(obj.lines, isLine) && isTList(obj.texts, isText) && Object.keys(obj).length === 3;
   }
 }
 export interface AppFileContent {

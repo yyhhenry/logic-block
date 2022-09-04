@@ -38,3 +38,6 @@ export namespace MyRoute {
     window.location.href = url.href;
   }
 }
+export type ModifyOption<T,> = {
+  [K in keyof T]?: T[K];
+};

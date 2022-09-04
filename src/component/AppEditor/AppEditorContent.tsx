@@ -21,14 +21,14 @@ export const AppEditorContent: React.FC<AppEditorContentProps> = props => {
       renderLoopCount: 0,
     };
   };
-  const { emitter } = props;
+  const { emitter, filename } = props;
   const [state, setState] = useState(initState);
   const { undoRecord, runtime, failed, renderLoopCount } = state;
   const boxMargin = 10;
   useEffect(() => {
     setState(initState());
-    if (props.filename !== undefined) {
-      database.queryTransaction('file', isAppFileContent, props.filename).then(v => {
+    if (filename !== undefined) {
+      database.queryTransaction('file', isAppFileContent, filename).then(v => {
         if (v) {
           const runtime = new LogicBlockRuntime(v.content);
           const undoRecord = new UndoRecord(runtime.renderFileContent(), RecordDepth);
@@ -48,7 +48,7 @@ export const AppEditorContent: React.FC<AppEditorContentProps> = props => {
         }
       });
     }
-  }, [props.filename]);
+  }, [filename]);
   const saveToDataBase = useCallback((content: LogicBlockFileModule.LogicBlockFileContent) => {
     (value => {
       database.modifyTransaction('file', store => {
@@ -56,10 +56,10 @@ export const AppEditorContent: React.FC<AppEditorContentProps> = props => {
         store.put(value);
       });
     })({
-      filename: props.filename,
+      filename,
       content,
     } as AppFileContent);
-  }, [props.filename]);
+  }, [filename]);
   requestAnimationFrame(() => {
     setState({ ...state, renderLoopCount: renderLoopCount + 1 });
   });
@@ -85,25 +85,25 @@ export const AppEditorContent: React.FC<AppEditorContentProps> = props => {
       }
     }
   }, [undoRecord, state, saveToDataBase]);
+  const save = useCallback(() => {
+    if (runtime !== undefined && filename !== undefined) {
+      const content = runtime.renderFileContent();
+      if (undoRecord) {
+        undoRecord.push(content);
+      }
+      saveToDataBase(content);
+    }
+  }, [undoRecord, runtime, filename, saveToDataBase]);
   useEffect(() => {
     emitter.addListener('undo', undo);
     emitter.addListener('redo', redo);
+    emitter.addListener('save', save);
     return () => {
       emitter.removeListener('undo', undo);
       emitter.removeListener('redo', redo);
+      emitter.removeListener('save', save);
     };
-  }, [emitter, redo, undo]);
-  const controller = {
-    save: () => {
-      if (runtime !== undefined && props.filename !== undefined) {
-        const content = runtime.renderFileContent();
-        if (undoRecord) {
-          undoRecord.push(content);
-        }
-        saveToDataBase(content);
-      }
-    }
-  };
+  }, [emitter, redo, undo, save]);
   return (
     <div
       style={{
@@ -132,7 +132,7 @@ export const AppEditorContent: React.FC<AppEditorContentProps> = props => {
                       <h1>{'加载中'}</h1>
                     </div>
                   ) : (
-                    <AppEditorView.TableView runtime={runtime} controller={controller} />
+                    <AppEditorView.TableView runtime={runtime} emitter={emitter} />
                   )
               )
           ) : (

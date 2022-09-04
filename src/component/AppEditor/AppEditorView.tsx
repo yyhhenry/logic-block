@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { LogicBlockFileModule } from './AppFileContent';
-import { LogicBlockRuntime } from './LogicBlockRuntime';
+import { LogicBlockRuntime, LogicBlockRuntimeController } from './LogicBlockRuntime';
 import { Geometry } from '../BasicModule/Geometry';
+import { EventEmitter } from 'stream';
+import { AppOptionList } from '../BasicModule/AppOptionList';
 const GeoPoint = Geometry.Point;
 export namespace EditorColorTable {
   export const activeLine = 'rgb(30,60,250)';
@@ -11,15 +13,6 @@ export namespace EditorColorTable {
   export const inactiveLine = 'gray';
 }
 export namespace AppEditorView {
-  export interface MenuViewProps {
-
-  }
-  export const MenuView: React.FC<MenuViewProps> = props => {
-    return (
-      <g>
-      </g>
-    );
-  };
   export interface PointViewProps {
     point: LogicBlockFileModule.Point;
     active: boolean;
@@ -130,38 +123,93 @@ export namespace AppEditorView {
   };
   export interface TableViewProps {
     runtime: LogicBlockRuntime;
-    controller: {
-      save: () => void;
-    };
+    emitter: EventEmitter;
+  }
+  interface PointMenuArgs {
+    controller: LogicBlockRuntimeController;
+    point: LogicBlockFileModule.Point;
+    ind: number;
+    rect: DOMRect;
   }
   export const TableView: React.FC<TableViewProps> = props => {
-    const { runtime, controller } = props;
+    const { runtime, emitter } = props;
     const fileContent = runtime.renderFileContent();
     const active = runtime.renderActive();
+    const controller = runtime.getControllerCopy();
+    const initState = () => ({
+      menuType: 'none' as 'point' | 'line' | 'text' | 'none',
+      pointMenu: undefined as PointMenuArgs | undefined,
+    });
+    const [state, setState] = useState(initState);
+    const { menuType, pointMenu } = state;
+    const clearMenuState = () => {
+      setState({
+        menuType: 'none',
+        pointMenu: undefined,
+      });
+    };
     const points = fileContent.points.map((point, ind) => (
-      <g key={ind} onClick={() => {
-        runtime.setPointPower(ind);
-        controller.save();
-      }}>
-        <PointView point={point} active={active[ind] ?? false} />
+      <g key={ind}
+        onContextMenu={ev => {
+          setState({ menuType: 'point', pointMenu: { controller, point, ind, rect: ev.currentTarget.getBoundingClientRect() } });
+          ev.preventDefault();
+          ev.stopPropagation();
+        }}
+      >
+        <PointView point={point} active={active[ind]} />
       </g>
     ));
     const lines = fileContent.lines.map((line, ind) => {
       const pointFrom = fileContent.points[line.pointFrom];
       const pointTo = fileContent.points[line.pointTo];
-      return <LineView key={ind} pointFrom={pointFrom} pointTo={pointTo} notGate={line.notGate} active={active[line.pointFrom] ?? false} />;
+      return <LineView key={ind} pointFrom={pointFrom} pointTo={pointTo} notGate={line.notGate} active={active[line.pointFrom]} />;
     });
     const texts = fileContent.texts.map((text, ind) => {
-      return (
-        <TextView key={ind} x={text.x} y={text.y} str={text.str} size={text.size} />
-      );
+      return <TextView key={ind} x={text.x} y={text.y} str={text.str} size={text.size} />;
     });
+    const renderMenu = () => {
+      if (menuType === 'point' && pointMenu) {
+        const { point, controller, ind, rect } = pointMenu;
+        return (
+          <AppOptionList
+            options={[point.power ? '清除源' : '生成源', '', '删除节点']}
+            symbol={point}
+            headerNodeRect={{ left: rect.right, bottom: rect.bottom }}
+            curtain={false}
+            resolve={res => {
+              if (res === '清除源' || res === '生成源') {
+                controller.setPoint(ind, { power: !point.power });
+                emitter.emit('save');
+              } else if (res === '删除节点') {
+                controller.removePoint(ind);
+                emitter.emit('save');
+              }
+              clearMenuState();
+            }}
+          />
+        );
+      }
+      return undefined;
+    };
     return (
-      <svg style={{ width: '100%', height: '100%' }}>
-        {lines}
-        {points}
-        {texts}
-      </svg>
+      <div style={{
+        width: '100%',
+        height: '100%',
+      }}>
+        <svg
+          style={{
+            width: '100%',
+            height: '100%',
+          }}
+          onClick={() => clearMenuState()}
+          onContextMenu={() => clearMenuState()}
+        >
+          {lines}
+          {points}
+          {texts}
+        </svg>
+        {renderMenu()}
+      </div>
     );
   };
 }
