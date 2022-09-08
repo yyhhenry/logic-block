@@ -1,14 +1,14 @@
 import React from 'react';
 import { AppEditor } from './component/AppEditor/AppEditor';
 import { AppHome } from './component/AppHome/AppHome';
-import { AppAlert } from './component/BasicModule/AppAlert';
+import { AppAlertElement } from './component/BasicModule/AppAlert';
 import { MyRoute } from './component/BasicModule/CommonHead';
 
 class App extends React.Component<{}, {}> {
   render(): React.ReactNode {
     return (
       <div>
-        <AppAlert />
+        <AppAlertElement />
         {(() => {
           let page = MyRoute.getRoute();
           if (page === '/') {

@@ -4,7 +4,7 @@ import { AppAlert } from '../BasicModule/AppAlert';
 import { AppCommonHeaderProps, AppHeader } from '../BasicModule/AppHeader';
 import { globalAboutDoc, MyRoute } from '../BasicModule/CommonHead';
 
-type EditorMenuOptionType = '文件' | '编辑' | '插入';
+type EditorMenuOptionType = '文件' | '编辑' | '帮助';
 export interface AppEditorHeaderProps extends AppCommonHeaderProps {
   emitter: EventEmitter;
 }
@@ -41,11 +41,11 @@ export class AppEditorHeader extends React.Component<AppEditorHeaderProps>{
             },
           },
           {
-            name: '插入',
+            name: '帮助',
             options: ['节点'],
             resolve: res => {
               if (res === '节点') {
-                AppAlert.alert('[插入 - 节点] - 敬请期待');
+                AppAlert.confirm('节点处右键查看菜单，或空白处右键添加（TODO）',false);
               }
               this.setState({ menuState: undefined });
             },

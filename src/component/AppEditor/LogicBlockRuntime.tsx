@@ -1,8 +1,6 @@
 import { ModifyOption } from "../BasicModule/CommonHead";
 import { LogicBlockFileModule } from "./AppFileContent";
-
-const MaxOperatorInOneTick = 128;
-
+const renderLoopInOneTick = 5;
 type LogicPoint = LogicBlockFileModule.Point;
 type LogicLine = LogicBlockFileModule.Line;
 type LogicText = LogicBlockFileModule.Text;
@@ -10,8 +8,10 @@ export interface LogicBlockRuntimeController {
   setPoint: (u: number, value: ModifyOption<LogicPoint>) => void;
   addPoint: (value: LogicPoint) => void;
   removePoint: (u: number) => void;
+  setLine: (u: number, operate: 'notGate' | 'reverse') => void;
   removeLine: (u: number) => void;
   addLine: (value: LogicLine) => void;
+  setText: (u: number, value: ModifyOption<LogicText>) => void;
   addText: (text: LogicText) => void;
   removeText: (u: number) => void;
 }
@@ -23,8 +23,6 @@ export class LogicBlockRuntime {
   private child: number[][];
   private active: boolean[];
   private lineWithPoint: LogicLine[][];
-  private queue: number[];
-  private vis: Set<number>;
   constructor(originFileContent: LogicBlockFileModule.LogicBlockFileContent) {
     this.points = originFileContent.points.map(v => ({ ...v }));
     this.lines = originFileContent.lines.map(v => ({ ...v }));
@@ -39,29 +37,15 @@ export class LogicBlockRuntime {
         this.lineWithPoint[line.pointTo].push(line);
       }
     });
-    this.queue = this.points.map((_v, ind) => ind);
-    this.vis = new Set(this.queue);
     this.rebuildMap();
     setTimeout(() => this.renderLoop());
   }
   private renderLoop() {
-    const maxTime = Math.min(MaxOperatorInOneTick, this.queue.length);
-    for (let i = 0; i < maxTime; i++) {
-      const u = this.queue.shift();
-      if (u !== undefined) {
-        this.vis.delete(u);
-        this.rebuildMap(u);
-      } else {
-        break;
-      }
+    const count = Math.max(1, Math.round((Math.random() + .5) * renderLoopInOneTick));
+    for (let i = 0; i < count; i++) {
+      this.rebuildMap();
     }
     setTimeout(() => this.renderLoop());
-  }
-  private needUpdate(u: number) {
-    if (!this.vis.has(u)) {
-      this.queue.push(u);
-      this.vis.add(u);
-    }
   }
   private getf(u: number): number {
     const fa = this.fa;
@@ -86,8 +70,8 @@ export class LogicBlockRuntime {
       });
     }
   }
-  private rebuildMap(u?: number) {
-    const range = u ? this.child[this.getf(u)] : this.points.map((_v, ind) => ind);
+  private rebuildMap() {
+    const range = this.points.map((_v, ind) => ind);
     const originActive = [...this.active];
     range.forEach(u => {
       this.rebuildPoint(u, originActive);
@@ -109,15 +93,6 @@ export class LogicBlockRuntime {
       this.child[this.getf(u)].push(u);
     });
     this.active = this.fa.map((f) => this.active[f]);
-    range.forEach(u => {
-      if (this.active[this.getf(u)] !== originActive[u]) {
-        this.lineWithPoint[u].forEach(line => {
-          if (line && line.notGate && line.pointFrom === u) {
-            this.needUpdate(line.pointTo);
-          }
-        });
-      }
-    });
   }
   renderActive() {
     return this.points.flatMap((v, ind) =>
@@ -156,17 +131,44 @@ export class LogicBlockRuntime {
       point.power = value.power ?? point.power;
       point.x = value.x ?? point.x;
       point.y = value.y ?? point.y;
-      this.rebuildMap(u);
+      this.rebuildMap();
+    }
+  }
+  private setText(u: number, value: ModifyOption<LogicText>) {
+    const text = this.texts[u];
+    if (text) {
+      text.size = value.size ?? text.size;
+      text.x = value.x ?? text.x;
+      text.y = value.y ?? text.y;
+      text.str = value.str ?? text.str;
+    }
+  }
+  private setLine(u: number, operate: 'notGate' | 'reverse') {
+    const line = this.lines[u];
+    if (line) {
+      if (operate === 'notGate') {
+        line.notGate = !line.notGate;
+      } else if (operate === 'reverse') {
+        const newLine = {
+          notGate: line.notGate,
+          pointFrom: line.pointTo,
+          pointTo: line.pointFrom,
+        };
+        this.lines[u] = newLine;
+        this.lineWithPoint[line.pointFrom] = this.lineWithPoint[line.pointFrom].map(v => v === line ? newLine : v);
+        this.lineWithPoint[line.pointTo] = this.lineWithPoint[line.pointTo].map(v => v === line ? newLine : v);
+      }
+      this.rebuildMap();
     }
   }
   private addPoint(value: LogicPoint) {
     const u = this.points.length;
     this.points.push({ ...value });
-    this.active.push(false);
+    this.active.push(value.power);
     this.fa.push(u);
     this.child.push([u]);
     this.lineWithPoint.push([]);
-    this.rebuildMap(u);
+    this.rebuildMap();
   }
   private addLine(value: LogicLine) {
     if (value.pointFrom !== value.pointTo && this.points[value.pointFrom] && this.points[value.pointTo]) {
@@ -174,17 +176,18 @@ export class LogicBlockRuntime {
       this.lines.push(line);
       this.lineWithPoint[value.pointFrom].push(line);
       this.lineWithPoint[value.pointTo].push(line);
-      this.rebuildMap(value.pointFrom);
+      this.rebuildMap();
     }
   }
-  private removeLine(u: number) {
+  private removeLine(u: number, asSubProc: boolean = false) {
     const line = this.lines[u];
     if (line) {
       this.lineWithPoint[line.pointFrom] = this.lineWithPoint[line.pointFrom].filter(v => v !== line);
       this.lineWithPoint[line.pointTo] = this.lineWithPoint[line.pointTo].filter(v => v !== line);
       this.lines[u] = null;
-      this.rebuildMap(line.pointFrom);
-      this.rebuildMap(line.pointTo);
+      if (!asSubProc) {
+        this.rebuildMap();
+      }
     }
   }
   private removePoint(u: number) {
@@ -192,10 +195,10 @@ export class LogicBlockRuntime {
       return (v !== null && (v.pointFrom === u || v.pointTo === u) ? [ind] : []);
     });
     lineNeedRemove.forEach(v => {
-      this.removeLine(v);
+      this.removeLine(v, true);
     });
     this.points[u] = null;
-    this.rebuildMap(u);
+    this.rebuildMap();
   }
   private addText(text: LogicText) {
     this.texts.push({ ...text });
@@ -217,6 +220,10 @@ export class LogicBlockRuntime {
         const ru = pointPointer[u];
         this.removePoint(ru);
       },
+      setLine: (u: number, operate: 'notGate' | 'reverse') => {
+        const ru = linePointer[u];
+        this.setLine(ru, operate);
+      },
       removeLine: (u: number) => {
         const ru = linePointer[u];
         this.removeLine(ru);
@@ -226,6 +233,10 @@ export class LogicBlockRuntime {
         const pointTo = pointPointer[value.pointTo];
         const notGate = value.notGate;
         this.addLine({ pointFrom, pointTo, notGate });
+      },
+      setText: (u: number, value: ModifyOption<LogicText>) => {
+        const ru = textPointer[u];
+        this.setText(ru, value);
       },
       addText: (text: LogicText) => {
         this.addText(text);

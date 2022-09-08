@@ -4,6 +4,7 @@ import { LogicBlockRuntime, LogicBlockRuntimeController } from './LogicBlockRunt
 import { Geometry } from '../BasicModule/Geometry';
 import { EventEmitter } from 'stream';
 import { AppOptionList } from '../BasicModule/AppOptionList';
+import { AppAlert } from '../BasicModule/AppAlert';
 const GeoPoint = Geometry.Point;
 export namespace EditorColorTable {
   export const activeLine = 'rgb(30,60,250)';
@@ -125,11 +126,19 @@ export namespace AppEditorView {
     runtime: LogicBlockRuntime;
     emitter: EventEmitter;
   }
-  interface PointMenuArgs {
+  interface CommonMenuArgs {
     controller: LogicBlockRuntimeController;
-    point: LogicBlockFileModule.Point;
     ind: number;
     rect: DOMRect;
+  }
+  interface PointMenuArgs extends CommonMenuArgs {
+    point: LogicBlockFileModule.Point;
+  }
+  interface LineMenuArgs extends CommonMenuArgs {
+    line: LogicBlockFileModule.Line;
+  }
+  interface TextMenuArgs extends CommonMenuArgs {
+    text: LogicBlockFileModule.Text;
   }
   export const TableView: React.FC<TableViewProps> = props => {
     const { runtime, emitter } = props;
@@ -137,21 +146,27 @@ export namespace AppEditorView {
     const active = runtime.renderActive();
     const controller = runtime.getControllerCopy();
     const initState = () => ({
-      menuType: 'none' as 'point' | 'line' | 'text' | 'none',
+      menuType: 'none' as 'point' | 'line' | 'text' | 'text-resize' | 'none',
       pointMenu: undefined as PointMenuArgs | undefined,
+      lineMenu: undefined as LineMenuArgs | undefined,
+      textMenu: undefined as TextMenuArgs | undefined,
+      textResizeBuff: undefined as number | undefined,
     });
     const [state, setState] = useState(initState);
-    const { menuType, pointMenu } = state;
+    const { menuType, pointMenu, lineMenu, textMenu, textResizeBuff } = state;
     const clearMenuState = () => {
       setState({
         menuType: 'none',
         pointMenu: undefined,
+        lineMenu: undefined,
+        textMenu: undefined,
+        textResizeBuff: undefined,
       });
     };
     const points = fileContent.points.map((point, ind) => (
       <g key={ind}
         onContextMenu={ev => {
-          setState({ menuType: 'point', pointMenu: { controller, point, ind, rect: ev.currentTarget.getBoundingClientRect() } });
+          setState({ menuType: 'point', pointMenu: { controller, point, ind, rect: ev.currentTarget.getBoundingClientRect() }, lineMenu: undefined, textMenu: undefined, textResizeBuff: undefined });
           ev.preventDefault();
           ev.stopPropagation();
         }}
@@ -162,10 +177,30 @@ export namespace AppEditorView {
     const lines = fileContent.lines.map((line, ind) => {
       const pointFrom = fileContent.points[line.pointFrom];
       const pointTo = fileContent.points[line.pointTo];
-      return <LineView key={ind} pointFrom={pointFrom} pointTo={pointTo} notGate={line.notGate} active={active[line.pointFrom]} />;
+      return (
+        <g key={ind}
+          onContextMenu={ev => {
+            setState({ menuType: 'line', pointMenu: undefined, lineMenu: { controller, line, ind, rect: ev.currentTarget.getBoundingClientRect() }, textMenu: undefined, textResizeBuff: undefined });
+            ev.preventDefault();
+            ev.stopPropagation();
+          }}
+        >
+          <LineView pointFrom={pointFrom} pointTo={pointTo} notGate={line.notGate} active={active[line.pointFrom]} />
+        </g>
+      );
     });
     const texts = fileContent.texts.map((text, ind) => {
-      return <TextView key={ind} x={text.x} y={text.y} str={text.str} size={text.size} />;
+      return (
+        <g key={ind}
+          onContextMenu={ev => {
+            setState({ menuType: 'text', pointMenu: undefined, lineMenu: undefined, textMenu: { controller, text, ind, rect: ev.currentTarget.getBoundingClientRect() }, textResizeBuff: undefined });
+            ev.preventDefault();
+            ev.stopPropagation();
+          }}
+        >
+          <TextView x={text.x} y={text.y} str={text.str} size={text.size} />
+        </g>
+      );
     });
     const renderMenu = () => {
       if (menuType === 'point' && pointMenu) {
@@ -188,6 +223,88 @@ export namespace AppEditorView {
             }}
           />
         );
+      } else if (menuType === 'line' && lineMenu) {
+        const { line, controller, ind, rect } = lineMenu;
+        return (
+          <AppOptionList
+            options={
+              line.notGate
+                ? ['取消非门', '转换方向', '', '删除连线']
+                : ['设置非门', '', '删除连线']
+            }
+            symbol={line}
+            headerNodeRect={{ left: (rect.left + rect.right) / 2, bottom: (rect.top + rect.bottom) / 2 }}
+            curtain={false}
+            resolve={res => {
+              if (res === '取消非门' || res === '设置非门') {
+                controller.setLine(ind, 'notGate');
+                emitter.emit('save');
+              } else if (res === '转换方向') {
+                controller.setLine(ind, 'reverse');
+                emitter.emit('save');
+              } else if (res === '删除连线') {
+                controller.removeLine(ind);
+                emitter.emit('save');
+              }
+              clearMenuState();
+            }}
+          />
+        );
+      } else if (menuType === 'text' && textMenu) {
+        const { text, controller, ind, rect } = textMenu;
+        return (
+          <AppOptionList
+            options={['编辑文字', '改变大小 >', '', '删除文字']}
+            symbol={text}
+            headerNodeRect={{ left: rect.right, bottom: rect.bottom }}
+            curtain={false}
+            resolve={res => {
+              if (res === '编辑文字') {
+                AppAlert.prompt('编辑文字', text.str).then(v => {
+                  if (v !== null) {
+                    controller.setText(ind, { str: v });
+                    emitter.emit('save');
+                  }
+                });
+              } else if (res === '删除文字') {
+                controller.removeText(ind);
+                emitter.emit('save');
+              } else if (res === '改变大小 >') {
+                setState({ ...state, menuType: 'text-resize' });
+                return;
+              }
+              clearMenuState();
+            }}
+          />
+        );
+      } else if (menuType === 'text-resize' && textMenu) {
+        const { text, controller, ind, rect } = textMenu;
+        const buffSize = textResizeBuff ?? text.size;
+        return (
+          <AppOptionList
+            options={['< 取消', '放大', '缩小', '完成']}
+            symbol={{ text, type: 'resize' }}
+            headerNodeRect={{ left: rect.right, bottom: rect.bottom }}
+            curtain={false}
+            resolve={res => {
+              if (res === '放大') {
+                const size = buffSize + Math.max(1, Math.round(buffSize * .1));
+                setState({ ...state, textResizeBuff: size });
+                controller.setText(ind, { size });
+              } else if (res === '缩小') {
+                const size = Math.max(1, buffSize - Math.max(1, Math.round(buffSize * .1)));
+                setState({ ...state, textResizeBuff: size });
+                controller.setText(ind, { size });
+              } else if (res === '< 取消') {
+                controller.setText(ind, { size: text.size });
+                setState({ ...state, menuType: 'text', textResizeBuff: undefined });
+              } else if (res === '完成') {
+                emitter.emit('save');
+                clearMenuState();
+              }
+            }}
+          />
+        );
       }
       return undefined;
     };
@@ -202,7 +319,12 @@ export namespace AppEditorView {
             height: '100%',
           }}
           onClick={() => clearMenuState()}
-          onContextMenu={() => clearMenuState()}
+          onContextMenu={ev => {
+            clearMenuState();
+            AppAlert.alert('空白处右键菜单：尚未开发');
+            ev.stopPropagation();
+            ev.preventDefault();
+          }}
         >
           {lines}
           {points}

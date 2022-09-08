@@ -12,7 +12,13 @@ export interface AppOptionListProps {
    * 传入所点击菜单的DOMRect
    */
   headerNodeRect: DOMRect | { left: number; bottom: number; };
+  /**
+   * default: true
+   */
   curtain?: boolean;
+  /**
+   * default: false
+   */
   resolveNullAtOnce?: boolean;
   /**
    * 当用户单击空白处或者间隔标识的时候传入null，否则传入对应菜单选项（菜单选项应该避免重复）
@@ -36,10 +42,71 @@ export const AppOptionList: React.FC<AppOptionListProps> = props => {
     setState({ enable });
     setTimeout(() => {
       resolve(option);
-    }, animeDuration);
+    }, curtain ? animeDuration : undefined);
   };
   if (resolveNullAtOnce) {
     fadeOut(null);
+  }
+  const core = (
+    <div style={{
+      position: curtain ? 'absolute' : 'fixed',
+      top: curtain ? 0 : headerNodeRect.bottom,
+      left: headerNodeRect.left + 5,
+      maxHeight: '80%',
+      width: 180,
+      overflowY: 'auto',
+      backgroundColor: 'white',
+      borderRadius: 5,
+      boxShadow: '0 0 4px 2px rgb(0,0,0,.4)',
+    }}>
+      {options.map((str, ind) => {
+        if (str === '') {
+          return (
+            <div key={ind}
+              style={{
+                display: 'flex',
+                justifyContent: 'center'
+              }}
+            >
+              <div style={{
+                marginTop: 5,
+                marginBottom: 5,
+                height: 3,
+                background: 'black',
+                width: '75%',
+              }} />
+            </div>
+          );
+        }
+        return (
+          <div key={ind} style={{
+            display: 'flex',
+            justifyContent: 'center'
+          }}>
+            <HoveredNode
+              style={hoverMark => ({
+                background: hoverMark ? 'rgb(230,230,230)' : 'white',
+                width: '90%',
+                padding: 10,
+                borderRadius: 5,
+                fontSize: 20,
+                cursor: 'pointer',
+              })}
+              content={() => str}
+              originProps={{
+                onClick: ev => {
+                  ev.stopPropagation();
+                  fadeOut(str);
+                }
+              }}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+  if (!curtain) {
+    return core;
   }
   return (
     <div
@@ -52,65 +119,13 @@ export const AppOptionList: React.FC<AppOptionListProps> = props => {
         backgroundColor: curtain ? ColorTable.curtain : 'transparent',
       }}
       onClick={ev => {
-        ev.stopPropagation();
-        fadeOut(null);
+        if (curtain) {
+          ev.stopPropagation();
+          fadeOut(null);
+        }
       }}
     >
-      <div style={{
-        position: 'absolute',
-        left: headerNodeRect.left + 5,
-        maxHeight: '80%',
-        width: 180,
-        overflowY: 'auto',
-        backgroundColor: 'white',
-        borderRadius: 5,
-        boxShadow: '0 0 4px 2px rgb(0,0,0,.4)',
-      }}>
-        {options.map((str, ind) => {
-          if (str === '') {
-            return (
-              <div key={ind}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'center'
-                }}
-              >
-                <div style={{
-                  marginTop: 5,
-                  marginBottom: 5,
-                  height: 3,
-                  background: 'black',
-                  width: '75%',
-                }} />
-              </div>
-            );
-          }
-          return (
-            <div key={ind} style={{
-              display: 'flex',
-              justifyContent: 'center'
-            }}>
-              <HoveredNode
-                style={hoverMark => ({
-                  background: hoverMark ? 'rgb(230,230,230)' : 'white',
-                  width: '90%',
-                  padding: 10,
-                  borderRadius: 5,
-                  fontSize: 20,
-                  cursor: 'pointer',
-                })}
-                content={() => str}
-                originProps={{
-                  onClick: ev => {
-                    ev.stopPropagation();
-                    fadeOut(str);
-                  }
-                }}
-              />
-            </div>
-          );
-        })}
-      </div>
+      {core}
     </div>
   );
 };
