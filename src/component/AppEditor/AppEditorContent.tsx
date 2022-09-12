@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { EventEmitter } from 'stream';
 import { AppDataBase } from '../AppDataBase';
 import { AppAlert } from '../BasicModule/AppAlert';
@@ -63,8 +63,12 @@ export const AppEditorContent: React.FC<AppEditorContentProps> = props => {
   requestAnimationFrame(() => {
     setState({ ...state, renderLoopCount: renderLoopCount + 1 });
   });
+  const undoDisabled = useRef(false);
+  const editing = useCallback(() => {
+    undoDisabled.current = true;
+  }, []);
   const undo = useCallback(() => {
-    if (undoRecord) {
+    if (undoRecord && !undoDisabled.current) {
       const content = undoRecord.undo();
       if (content) {
         setState({ ...state, runtime: new LogicBlockRuntime(content) });
@@ -75,7 +79,7 @@ export const AppEditorContent: React.FC<AppEditorContentProps> = props => {
     }
   }, [undoRecord, state, saveToDataBase]);
   const redo = useCallback(() => {
-    if (undoRecord) {
+    if (undoRecord && !undoDisabled.current) {
       const content = undoRecord.redo();
       if (content) {
         setState({ ...state, runtime: new LogicBlockRuntime(content) });
@@ -88,6 +92,7 @@ export const AppEditorContent: React.FC<AppEditorContentProps> = props => {
   const save = useCallback(() => {
     if (runtime !== undefined && filename !== undefined) {
       const content = runtime.renderFileContent();
+      undoDisabled.current = false;
       if (undoRecord) {
         undoRecord.push(content);
       }
@@ -97,13 +102,15 @@ export const AppEditorContent: React.FC<AppEditorContentProps> = props => {
   useEffect(() => {
     emitter.addListener('undo', undo);
     emitter.addListener('redo', redo);
+    emitter.addListener('editing', editing);
     emitter.addListener('save', save);
     return () => {
       emitter.removeListener('undo', undo);
       emitter.removeListener('redo', redo);
+      emitter.removeListener('editing', editing);
       emitter.removeListener('save', save);
     };
-  }, [emitter, redo, undo, save]);
+  }, [emitter, redo, undo, save, editing]);
   return (
     <div
       style={{

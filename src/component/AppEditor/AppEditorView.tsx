@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { LogicBlockFileModule } from './AppFileContent';
 import { LogicBlockRuntime, LogicBlockRuntimeController } from './LogicBlockRuntime';
 import { Geometry } from '../BasicModule/Geometry';
@@ -412,6 +412,75 @@ export namespace AppEditorView {
       }
       return undefined;
     };
+    const disabled = useRef(false);
+    const editing = useCallback(() => {
+      disabled.current = true;
+    }, []);
+    const onSave = useCallback(() => {
+      disabled.current = false;
+    }, []);
+    const moveActivated = useRef(false);
+    const onMouseUp = useCallback((ev: MouseEvent) => {
+      if (ev.button === 0) {
+        mouseInfo.current = ({
+          x: ev.clientX,
+          y: ev.clientY,
+          button0: false,
+        });
+        moveActivated.current = false;
+        if (disabled.current) {
+          emitter.emit('save');
+        }
+      }
+    }, [emitter]);
+    const onMouseMove = useCallback((ev: MouseEvent) => {
+      if (mouseInfo.current.button0) {
+        const movement = {
+          x: (ev.clientX - mouseInfo.current.x) / scale.current,
+          y: (ev.clientY - mouseInfo.current.y) / scale.current,
+        };
+        const dis = (x: number, y: number) => Math.sqrt(x * x + y * y);
+        if (!moveActivated.current && dis(movement.x, movement.y) * scale.current < 10) {
+          return;
+        }
+        moveActivated.current = true;
+        const points = focus.current.points;
+        const texts = focus.current.texts;
+        if (points.size || texts.size) {
+          if (!disabled.current) {
+            emitter.emit('editing');
+          }
+          for (const point of points) {
+            controller.movePoint(point, { dx: movement.x, dy: movement.y });
+          }
+          for (const text of texts) {
+            controller.moveText(text, { dx: movement.x, dy: movement.y });
+          }
+        } else {
+          transformArgs.current = ({
+            x: transformArgs.current.x + movement.x,
+            y: transformArgs.current.y + movement.y,
+          });
+        }
+        mouseInfo.current = ({
+          x: ev.clientX,
+          y: ev.clientY,
+          button0: mouseInfo.current.button0,
+        });
+      }
+    }, [emitter, controller]);
+    useEffect(() => {
+      emitter.addListener('editing', editing);
+      emitter.addListener('save', onSave);
+      window.addEventListener('mouseup', onMouseUp);
+      window.addEventListener('mousemove', onMouseMove);
+      return () => {
+        emitter.removeListener('editing', editing);
+        emitter.removeListener('save', onSave);
+        window.removeEventListener('mouseup', onMouseUp);
+        window.removeEventListener('mousemove', onMouseMove);
+      };
+    }, [emitter, editing, onSave, onMouseUp, onMouseMove]);
     return (
       <div style={{
         width: '100%',
@@ -443,52 +512,10 @@ export namespace AppEditorView {
               scale.current = (scale.current / 1.05);
             }
           }}
-          onMouseMove={ev => {
-            const movement = {
-              x: (ev.clientX - mouseInfo.current.x) / scale.current,
-              y: (ev.clientY - mouseInfo.current.y) / scale.current,
-            };
-            if (mouseInfo.current.button0) {
-              const points = focus.current.points;
-              const texts = focus.current.texts;
-              if (points.size || texts.size) {
-                for (const point of points) {
-                  controller.movePoint(point, { dx: movement.x, dy: movement.y });
-                }
-                for (const text of texts) {
-                  controller.moveText(text, { dx: movement.x, dy: movement.y });
-                }
-              } else {
-                transformArgs.current = ({
-                  x: transformArgs.current.x + movement.x,
-                  y: transformArgs.current.y + movement.y,
-                });
-              }
-            }
-            mouseInfo.current = ({
-              x: ev.clientX,
-              y: ev.clientY,
-              button0: mouseInfo.current.button0,
-            });
-          }}
           onMouseDown={ev => {
             if (ev.button === 0) {
               commonMouseDown(ev);
               blurAll();
-            }
-          }}
-          onMouseUp={ev => {
-            if (ev.button === 0) {
-              mouseInfo.current = ({
-                x: ev.clientX,
-                y: ev.clientY,
-                button0: false,
-              });
-              const points = focus.current.points;
-              const texts = focus.current.texts;
-              if (points.size || texts.size) {
-                emitter.emit('save');
-              }
             }
           }}
           onContextMenu={ev => {
