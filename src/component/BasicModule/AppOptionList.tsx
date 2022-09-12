@@ -47,13 +47,47 @@ export const AppOptionList: React.FC<AppOptionListProps> = props => {
   if (resolveNullAtOnce) {
     fadeOut(null);
   }
+  const getBox = () => {
+    const width = 180;
+    const getLeft = () => {
+      const offset = 5;
+      if (headerNodeRect.left + offset + width > window.innerWidth) {
+        return window.innerWidth - width;
+      } else {
+        return headerNodeRect.left + offset;
+      }
+    };
+    const getVertical = () => {
+      if (curtain) {
+        return {
+          top: 0,
+          maxHeight: '80%',
+        };
+      } else {
+        const bottomDis = window.innerHeight - headerNodeRect.bottom;
+        if (headerNodeRect.bottom > .7 * window.innerHeight) {
+          return {
+            bottom: bottomDis,
+            maxHeight: '70%',
+          };
+        } else {
+          return {
+            top: headerNodeRect.bottom,
+            maxHeight: bottomDis,
+          };
+        }
+      }
+    };
+    return {
+      width,
+      left: getLeft(),
+      ...getVertical(),
+    };
+  };
   const core = (
     <div style={{
       position: curtain ? 'absolute' : 'fixed',
-      top: curtain ? 0 : headerNodeRect.bottom,
-      left: headerNodeRect.left + 5,
-      maxHeight: '80%',
-      width: 180,
+      ...getBox(),
       overflowY: 'auto',
       backgroundColor: 'white',
       borderRadius: 5,

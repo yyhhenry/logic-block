@@ -6,12 +6,14 @@ type LogicLine = LogicBlockFileModule.Line;
 type LogicText = LogicBlockFileModule.Text;
 export interface LogicBlockRuntimeController {
   setPoint: (u: number, value: ModifyOption<LogicPoint>) => void;
+  movePoint: (u: number, value: { dx: number, dy: number; }) => void;
   addPoint: (value: LogicPoint) => void;
   removePoint: (u: number) => void;
   setLine: (u: number, operate: 'notGate' | 'reverse') => void;
   removeLine: (u: number) => void;
   addLine: (value: LogicLine) => void;
   setText: (u: number, value: ModifyOption<LogicText>) => void;
+  moveText: (u: number, value: { dx: number, dy: number; }) => void;
   addText: (text: LogicText) => void;
   removeText: (u: number) => void;
 }
@@ -134,6 +136,13 @@ export class LogicBlockRuntime {
       this.rebuildMap();
     }
   }
+  private movePoint(u: number, { dx, dy }: { dx: number, dy: number; }) {
+    const point = this.points[u];
+    if (point) {
+      point.x += dx;
+      point.y += dy;
+    }
+  }
   private setText(u: number, value: ModifyOption<LogicText>) {
     const text = this.texts[u];
     if (text) {
@@ -203,6 +212,13 @@ export class LogicBlockRuntime {
   private addText(text: LogicText) {
     this.texts.push({ ...text });
   }
+  private moveText(u: number, { dx, dy }: { dx: number; dy: number; }): void {
+    const text = this.texts[u];
+    if (text) {
+      text.x += dx;
+      text.y += dy;
+    }
+  }
   private removeText(u: number) {
     this.texts[u] = null;
   }
@@ -212,6 +228,10 @@ export class LogicBlockRuntime {
       setPoint: (u: number, value: ModifyOption<LogicPoint>) => {
         const ru = pointPointer[u];
         return this.setPoint(ru, value);
+      },
+      movePoint: (u: number, value: { dx: number, dy: number; }) => {
+        const ru = pointPointer[u];
+        return this.movePoint(ru, value);
       },
       addPoint: (value: LogicPoint) => {
         this.addPoint(value);
@@ -237,6 +257,10 @@ export class LogicBlockRuntime {
       setText: (u: number, value: ModifyOption<LogicText>) => {
         const ru = textPointer[u];
         this.setText(ru, value);
+      },
+      moveText: (u: number, value: { dx: number, dy: number; }) => {
+        const ru = textPointer[u];
+        return this.moveText(ru, value);
       },
       addText: (text: LogicText) => {
         this.addText(text);

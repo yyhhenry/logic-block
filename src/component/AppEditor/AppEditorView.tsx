@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { LogicBlockFileModule } from './AppFileContent';
 import { LogicBlockRuntime, LogicBlockRuntimeController } from './LogicBlockRuntime';
 import { Geometry } from '../BasicModule/Geometry';
@@ -17,22 +17,44 @@ export namespace AppEditorView {
   export interface PointViewProps {
     point: LogicBlockFileModule.Point;
     active: boolean;
+    focus: boolean;
   }
   export const PointView: React.FC<PointViewProps> = props => {
-    const { point, active } = props;
+    const { point, active, focus } = props;
     const sideLength = point.power ? 25 : 20;
+    const shadowSide = sideLength + 15;
     return (
-      <rect
-        x={point.x - sideLength / 2}
-        y={point.y - sideLength / 2}
-        width={sideLength}
-        height={sideLength}
-        rx={sideLength / 4}
-        ry={sideLength / 4}
-        style={{
-          fill: point.power ? EditorColorTable.powerNode : (active ? EditorColorTable.activeNode : EditorColorTable.inactiveNode),
-        }}
-      />
+      <g>
+        {
+          focus
+            ? (
+              <rect
+                x={point.x - shadowSide / 2}
+                y={point.y - shadowSide / 2}
+                width={shadowSide}
+                height={shadowSide}
+                rx={shadowSide / 3}
+                ry={shadowSide / 3}
+                style={{
+                  fill: 'rgba(0,0,0,0.3)',
+                }}
+              />
+            ) : (
+              undefined
+            )
+        }
+        <rect
+          x={point.x - sideLength / 2}
+          y={point.y - sideLength / 2}
+          width={sideLength}
+          height={sideLength}
+          rx={sideLength / 4}
+          ry={sideLength / 4}
+          style={{
+            fill: point.power ? EditorColorTable.powerNode : (active ? EditorColorTable.activeNode : EditorColorTable.inactiveNode),
+          }}
+        />
+      </g>
     );
   };
   export interface LineViewProps {
@@ -115,11 +137,34 @@ export namespace AppEditorView {
     y: number;
     str: string;
     size: number;
+    focus: boolean;
   }
   export const TextView: React.FC<TextViewProps> = props => {
-    const { x, y, str, size } = props;
+    const { x, y, str, size, focus } = props;
     return (
-      <text style={{ userSelect: 'none' }} x={x} y={y} fontSize={size}>{str}</text>
+      <g>
+        {
+          focus
+            ? (
+              <rect
+                x={x - size / 2}
+                y={y - size}
+                width={size / 2}
+                height={size / 2}
+                stroke={'black'}
+                rx={size / 8}
+                fill={'rgba(0,0,0,0.3)'}
+              />
+            )
+            : undefined
+        }
+        <text
+          style={{ userSelect: 'none' }}
+          x={x}
+          y={y}
+          fontSize={size}
+        >{str}</text>
+      </g>
     );
   };
   export interface TableViewProps {
@@ -153,8 +198,33 @@ export namespace AppEditorView {
       textResizeBuff: undefined as number | undefined,
     });
     const [state, setState] = useState(initState);
+    const scale = useRef(1);
+    const mouseInfo = useRef({
+      button0: false,
+      x: 0,
+      y: 0,
+    });
+    const commonMouseDown = (ev: React.MouseEvent<SVGGElement, MouseEvent>) => {
+      mouseInfo.current = ({
+        x: ev.clientX,
+        y: ev.clientY,
+        button0: true,
+      });
+      clearMenuState();
+    };
+    const focus = useRef({
+      points: new Set<number>(),
+      lines: new Set<number>(),
+      texts: new Set<number>(),
+    });
+    const blurAll = useCallback(() => {
+      focus.current.points.clear();
+      focus.current.lines.clear();
+      focus.current.texts.clear();
+    }, []);
+    const transformArgs = useRef({ x: 0, y: 0 });
     const { menuType, pointMenu, lineMenu, textMenu, textResizeBuff } = state;
-    const clearMenuState = () => {
+    const clearMenuState = useCallback(() => {
       setState({
         menuType: 'none',
         pointMenu: undefined,
@@ -162,16 +232,33 @@ export namespace AppEditorView {
         textMenu: undefined,
         textResizeBuff: undefined,
       });
-    };
+    }, []);
     const points = fileContent.points.map((point, ind) => (
       <g key={ind}
+        onMouseDown={ev => {
+          if (ev.button === 0) {
+            const points = focus.current.points;
+            if (!ev.ctrlKey) {
+              blurAll();
+              points.add(ind);
+            } else {
+              if (points.has(ind)) {
+                points.delete(ind);
+              } else {
+                points.add(ind);
+              }
+            }
+            commonMouseDown(ev);
+            ev.stopPropagation();
+          }
+        }}
         onContextMenu={ev => {
           setState({ menuType: 'point', pointMenu: { controller, point, ind, rect: ev.currentTarget.getBoundingClientRect() }, lineMenu: undefined, textMenu: undefined, textResizeBuff: undefined });
           ev.preventDefault();
           ev.stopPropagation();
         }}
       >
-        <PointView point={point} active={active[ind]} />
+        <PointView point={point} active={active[ind]} focus={focus.current.points.has(ind)} />
       </g>
     ));
     const lines = fileContent.lines.map((line, ind) => {
@@ -192,13 +279,30 @@ export namespace AppEditorView {
     const texts = fileContent.texts.map((text, ind) => {
       return (
         <g key={ind}
+          onMouseDown={ev => {
+            if (ev.button === 0) {
+              const texts = focus.current.texts;
+              if (!ev.ctrlKey) {
+                blurAll();
+                texts.add(ind);
+              } else {
+                if (texts.has(ind)) {
+                  texts.delete(ind);
+                } else {
+                  texts.add(ind);
+                }
+              }
+              commonMouseDown(ev);
+              ev.stopPropagation();
+            }
+          }}
           onContextMenu={ev => {
             setState({ menuType: 'text', pointMenu: undefined, lineMenu: undefined, textMenu: { controller, text, ind, rect: ev.currentTarget.getBoundingClientRect() }, textResizeBuff: undefined });
             ev.preventDefault();
             ev.stopPropagation();
           }}
         >
-          <TextView x={text.x} y={text.y} str={text.str} size={text.size} />
+          <TextView x={text.x} y={text.y} str={text.str} size={text.size} focus={focus.current.texts.has(ind)} />
         </g>
       );
     });
@@ -318,7 +422,75 @@ export namespace AppEditorView {
             width: '100%',
             height: '100%',
           }}
-          onClick={() => clearMenuState()}
+          onWheel={ev => {
+            const rate = 1.05;
+            const rect = ev.currentTarget.getBoundingClientRect();
+            const relMouse = {
+              x: ev.clientX - rect.left,
+              y: ev.clientY - rect.top,
+            };
+            if (ev.deltaY < 0) {
+              transformArgs.current = ({
+                x: transformArgs.current.x - relMouse.x * (rate - 1) / scale.current,
+                y: transformArgs.current.y - relMouse.y * (rate - 1) / scale.current,
+              });
+              scale.current = (scale.current * rate);
+            } else {
+              transformArgs.current = ({
+                x: transformArgs.current.x - relMouse.x * (1 / rate - 1) / scale.current,
+                y: transformArgs.current.y - relMouse.y * (1 / rate - 1) / scale.current,
+              });
+              scale.current = (scale.current / 1.05);
+            }
+          }}
+          onMouseMove={ev => {
+            const movement = {
+              x: (ev.clientX - mouseInfo.current.x) / scale.current,
+              y: (ev.clientY - mouseInfo.current.y) / scale.current,
+            };
+            if (mouseInfo.current.button0) {
+              const points = focus.current.points;
+              const texts = focus.current.texts;
+              if (points.size || texts.size) {
+                for (const point of points) {
+                  controller.movePoint(point, { dx: movement.x, dy: movement.y });
+                }
+                for (const text of texts) {
+                  controller.moveText(text, { dx: movement.x, dy: movement.y });
+                }
+              } else {
+                transformArgs.current = ({
+                  x: transformArgs.current.x + movement.x,
+                  y: transformArgs.current.y + movement.y,
+                });
+              }
+            }
+            mouseInfo.current = ({
+              x: ev.clientX,
+              y: ev.clientY,
+              button0: mouseInfo.current.button0,
+            });
+          }}
+          onMouseDown={ev => {
+            if (ev.button === 0) {
+              commonMouseDown(ev);
+              blurAll();
+            }
+          }}
+          onMouseUp={ev => {
+            if (ev.button === 0) {
+              mouseInfo.current = ({
+                x: ev.clientX,
+                y: ev.clientY,
+                button0: false,
+              });
+              const points = focus.current.points;
+              const texts = focus.current.texts;
+              if (points.size || texts.size) {
+                emitter.emit('save');
+              }
+            }
+          }}
           onContextMenu={ev => {
             clearMenuState();
             AppAlert.alert('空白处右键菜单：尚未开发');
@@ -326,9 +498,13 @@ export namespace AppEditorView {
             ev.preventDefault();
           }}
         >
-          {lines}
-          {points}
-          {texts}
+          <g transform={`scale(${scale.current},${scale.current})`}>
+            <g transform={`translate(${transformArgs.current.x},${transformArgs.current.y})`}>
+              {lines}
+              {points}
+              {texts}
+            </g>
+          </g>
         </svg>
         {renderMenu()}
       </div>
