@@ -7,7 +7,7 @@ import { LogicBlockRuntime } from './LogicBlockRuntime';
 import { AppEditorView } from './AppEditorView';
 import { UndoRecord } from '../BasicModule/UndoRecord';
 const database = AppDataBase.getDataBase('yyhhenry-logic-block');
-const RecordDepth = 10;
+export const AppEditorRecordDepth = 10;
 export interface AppEditorContentProps {
   filename?: string;
   emitter: EventEmitter;
@@ -31,7 +31,7 @@ export const AppEditorContent: React.FC<AppEditorContentProps> = props => {
       database.queryTransaction('file', isAppFileContent, filename).then(v => {
         if (v) {
           const runtime = new LogicBlockRuntime(v.content);
-          const undoRecord = new UndoRecord(runtime.renderFileContent(), RecordDepth);
+          const undoRecord = new UndoRecord(runtime.renderFileContent(), AppEditorRecordDepth);
           setState({
             undoRecord,
             runtime,

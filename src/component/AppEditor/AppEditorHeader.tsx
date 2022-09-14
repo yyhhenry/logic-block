@@ -3,6 +3,7 @@ import { EventEmitter } from 'stream';
 import { AppAlert } from '../BasicModule/AppAlert';
 import { AppCommonHeaderProps, AppHeader } from '../BasicModule/AppHeader';
 import { globalAboutDoc, MyRoute } from '../BasicModule/CommonHead';
+import { AppEditorRecordDepth } from './AppEditorContent';
 
 type EditorMenuOptionType = '文件' | '编辑' | '帮助';
 export interface AppEditorHeaderProps extends AppCommonHeaderProps {
@@ -42,10 +43,12 @@ export class AppEditorHeader extends React.Component<AppEditorHeaderProps>{
           },
           {
             name: '帮助',
-            options: ['节点'],
+            options: ['节点/连边/文本', '撤销/重做'],
             resolve: res => {
-              if (res === '节点') {
-                AppAlert.confirm('节点处右键查看菜单，或空白处右键添加（TODO）',false);
+              if (res === '节点/连边/文本') {
+                AppAlert.confirm('节点/连边/文本处右键查看菜单，左键拖动，或空白处右键添加（TODO）', false);
+              } else if (res === '撤销/重做') {
+                AppAlert.confirm(`撤销重做对一切元素均有效，并具有保存深度上限${AppEditorRecordDepth}，并且会导致所有节点的状态重置`, false);
               }
               this.setState({ menuState: undefined });
             },

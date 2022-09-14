@@ -13,6 +13,10 @@ const storeInfoRecord: StoreInfoRecordType = {
       storeName: 'file',
       keyPath: 'filename',
     },
+    {
+      storeName: 'settings',
+      keyPath: 'key',
+    },
   ],
 };
 
@@ -21,7 +25,7 @@ interface openDataBaseOption {
   upgradeListener: (database: IDBDatabase) => void;
 }
 function openDataBase(databaseName: string, option?: openDataBaseOption) {
-  let { version, upgradeListener } = option || {};
+  let { version, upgradeListener } = option ?? {};
   return new Promise<IDBDatabase>(async resolve => {
     let dbRequest = indexedDB.open(databaseName, version);
     dbRequest.addEventListener('success', () => {
@@ -33,32 +37,56 @@ function openDataBase(databaseName: string, option?: openDataBaseOption) {
       upgradeListener && upgradeListener(dbRequest.result);
     });
     dbRequest.addEventListener('blocked', () => {
-      console.info('indexedDB.open(): [blocked]');
-    })
+      throw new Error('indexedDB.open(): [blocked]');
+    });
     dbRequest.addEventListener('error', () => {
-      console.info('indexedDB.open(): [error]');
+      throw new Error('indexedDB.open(): [error]');
     });
   });
 }
 async function initDataBase(databaseName: string, storeNames: StoreInfoType[], autoClose: boolean, callback: (database: IDBDatabase) => Promise<void>) {
-  async function initStoreNameBase(databaseName: string, storeNames: StoreInfoType[]) {
-    let database = await openDataBase(databaseName);
-    let currentNames = database.objectStoreNames;
-    if (storeNames.every(storeInfo => currentNames.contains(storeInfo.storeName))) {
+  async function initStoreNameBase(databaseName: string, storeInfos: StoreInfoType[]) {
+    const database = await openDataBase(databaseName);
+    const currentNames = database.objectStoreNames;
+    const transaction = database.transaction(currentNames, 'readonly');
+    const checkStoreInfo = (storeInfo: StoreInfoType) => {
+      const { storeName, keyPath } = storeInfo;
+      if (!currentNames.contains(storeName)) {
+        return false;
+      } else {
+        const curKeyPath = transaction.objectStore(storeName).keyPath;
+        if (Array.isArray(keyPath)) {
+          if (!Array.isArray(curKeyPath)) {
+            return false;
+          }
+          return (keyPath.length === curKeyPath.length
+            && keyPath.every((v, ind) => v === curKeyPath[ind]));
+        } else {
+          if (Array.isArray(curKeyPath)) {
+            return false;
+          }
+          return keyPath === curKeyPath;
+        }
+      }
+    };
+    const storeInfosNeedUpdate = storeInfos.filter(v => !checkStoreInfo(v));
+    if (storeInfosNeedUpdate.length === 0) {
       console.log('initStoreName(): 全部Store已经建立');
       return database;
     }
-    let version = database.version + 1;
+    const version = database.version + 1;
+    transaction.commit();
     database.close();
     (await openDataBase(databaseName, {
       version,
       upgradeListener(database) {
-        storeNames.forEach(storeInfo => {
-          let { storeName, keyPath } = storeInfo;
-          if (!currentNames.contains(storeName)) {
-            database.createObjectStore(storeName, { keyPath });
-            console.log(`initStoreName(): 创建${storeName}`);
+        storeInfosNeedUpdate.forEach(storeInfo => {
+          const { storeName, keyPath } = storeInfo;
+          if (currentNames.contains(storeName)) {
+            database.deleteObjectStore(storeName);
           }
+          database.createObjectStore(storeName, { keyPath });
+          console.log(`initStoreName(): 创建${storeName}`);
         });
       },
     })).close();
@@ -111,9 +139,9 @@ export class AppDataBase {
   modifyTransaction(storeName: string, callback: (store: IDBObjectStore) => void) {
     return new Promise<void>(async (resolve, reject) => {
       this.requestTransaction(async database => {
-        let transaction = database.transaction(storeName, 'readwrite');
+        const transaction = database.transaction(storeName, 'readwrite');
         callback(transaction.objectStore(storeName));
-
+        transaction.commit();
         transaction.addEventListener('complete', () => {
           resolve(undefined);
         });
@@ -126,10 +154,11 @@ export class AppDataBase {
   queryTransaction<T>(storeName: string, isT: ((v: unknown) => v is T), query: IDBValidKey | IDBKeyRange) {
     return new Promise<T | undefined>(async (resolve, reject) => {
       this.requestTransaction(async database => {
-        let transaction = database.transaction(storeName, 'readonly');
-        let request = transaction.objectStore(storeName).get(query);
+        const transaction = database.transaction(storeName, 'readonly');
+        const request = transaction.objectStore(storeName).get(query);
+        transaction.commit();
         transaction.addEventListener('complete', () => {
-          let v = request.result;
+          const v = request.result;
           resolve(isT(v) ? v : undefined);
         });
         transaction.addEventListener('error', () => {
@@ -141,8 +170,9 @@ export class AppDataBase {
   queryAllTransaction<T>(storeName: string, isT: ((v: unknown) => v is T), query: IDBValidKey | IDBKeyRange | undefined = undefined) {
     return new Promise<T[]>(async (resolve, reject) => {
       this.requestTransaction(async database => {
-        let transaction = database.transaction(storeName, 'readonly');
-        let request = transaction.objectStore(storeName).getAll(query);
+        const transaction = database.transaction(storeName, 'readonly');
+        const request = transaction.objectStore(storeName).getAll(query);
+        transaction.commit();
         transaction.addEventListener('complete', () => {
           resolve(request.result.filter(v => isT(v)) as T[]);
         });
@@ -155,8 +185,9 @@ export class AppDataBase {
   countTransaction(storeName: string, query: IDBValidKey | IDBKeyRange | undefined = undefined) {
     return new Promise<number>(async (resolve, reject) => {
       this.requestTransaction(async database => {
-        let transaction = database.transaction(storeName, 'readonly');
-        let request = transaction.objectStore(storeName).count(query);
+        const transaction = database.transaction(storeName, 'readonly');
+        const request = transaction.objectStore(storeName).count(query);
+        transaction.commit();
         transaction.addEventListener('complete', () => {
           resolve(request.result);
         });
