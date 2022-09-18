@@ -141,7 +141,6 @@ export class AppDataBase {
       this.requestTransaction(async database => {
         const transaction = database.transaction(storeName, 'readwrite');
         callback(transaction.objectStore(storeName));
-        transaction.commit();
         transaction.addEventListener('complete', () => {
           resolve(undefined);
         });
@@ -156,7 +155,6 @@ export class AppDataBase {
       this.requestTransaction(async database => {
         const transaction = database.transaction(storeName, 'readonly');
         const request = transaction.objectStore(storeName).get(query);
-        transaction.commit();
         transaction.addEventListener('complete', () => {
           const v = request.result;
           resolve(isT(v) ? v : undefined);
@@ -172,7 +170,6 @@ export class AppDataBase {
       this.requestTransaction(async database => {
         const transaction = database.transaction(storeName, 'readonly');
         const request = transaction.objectStore(storeName).getAll(query);
-        transaction.commit();
         transaction.addEventListener('complete', () => {
           resolve(request.result.filter(v => isT(v)) as T[]);
         });
@@ -187,7 +184,6 @@ export class AppDataBase {
       this.requestTransaction(async database => {
         const transaction = database.transaction(storeName, 'readonly');
         const request = transaction.objectStore(storeName).count(query);
-        transaction.commit();
         transaction.addEventListener('complete', () => {
           resolve(request.result);
         });
