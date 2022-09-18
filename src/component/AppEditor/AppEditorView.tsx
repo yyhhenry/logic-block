@@ -62,12 +62,33 @@ export namespace AppEditorView {
     pointTo: LogicBlockFileModule.Point;
     notGate: boolean;
     active: boolean;
+    focus: boolean;
   }
   export const LineView: React.FC<LineViewProps> = props => {
     const { pointFrom, pointTo, notGate, active } = props;
     const lineWidth = 7;
     const baseColor = [EditorColorTable.inactiveLine, EditorColorTable.activeLine];
     const [stroke, strokeRev] = active ? baseColor.reverse() : baseColor;
+    if (props.focus) {
+      return (
+        <g>
+          <g>
+            <line
+              x1={pointFrom.x}
+              y1={pointFrom.y}
+              x2={pointTo.x}
+              y2={pointTo.y}
+              style={{
+                strokeWidth: lineWidth * 2,
+                stroke: 'rgb(0,0,0,.2)',
+                strokeLinecap: 'round',
+              }}
+            />
+          </g>
+          <LineView {...{ ...props, focus: false }} />
+        </g>
+      );
+    }
     if (!notGate) {
       return (
         <g>
@@ -146,15 +167,13 @@ export namespace AppEditorView {
         {
           focus
             ? (
-              <rect
-                x={x - size / 2}
-                y={y - size}
-                width={size / 2}
-                height={size / 2}
-                stroke={'black'}
-                rx={size / 8}
-                fill={'rgba(0,0,0,0.3)'}
-              />
+              <text
+                style={{ userSelect: 'none' }}
+                x={x + size / 10}
+                y={y + size / 10}
+                fontSize={size}
+                fill={'rgba(0,0,0,.3)'}
+              >{str}</text>
             )
             : undefined
         }
@@ -163,6 +182,7 @@ export namespace AppEditorView {
           x={x}
           y={y}
           fontSize={size}
+          textDecoration={focus ? 'underline' : 'none'}
         >{str}</text>
       </g>
     );
@@ -185,19 +205,35 @@ export namespace AppEditorView {
   interface TextMenuArgs extends CommonMenuArgs {
     text: LogicBlockFileModule.Text;
   }
+  interface BlankMenuArgs {
+    controller: LogicBlockRuntimeController;
+    menuPos: {
+      x: number;
+      y: number;
+    };
+    point: {
+      x: number;
+      y: number;
+    };
+  }
+  interface TableViewState {
+    menuType: 'point' | 'line' | 'text' | 'text-resize' | 'blank' | 'none';
+    pointMenu?: PointMenuArgs;
+    lineMenu?: LineMenuArgs;
+    textMenu?: TextMenuArgs;
+    textResizeBuff?: number;
+    blankMenu?: BlankMenuArgs;
+  }
   export const TableView: React.FC<TableViewProps> = props => {
     const { runtime, emitter } = props;
     const fileContent = runtime.renderFileContent();
     const active = runtime.renderActive();
     const controller = runtime.getControllerCopy();
     const initState = () => ({
-      menuType: 'none' as 'point' | 'line' | 'text' | 'text-resize' | 'none',
-      pointMenu: undefined as PointMenuArgs | undefined,
-      lineMenu: undefined as LineMenuArgs | undefined,
-      textMenu: undefined as TextMenuArgs | undefined,
-      textResizeBuff: undefined as number | undefined,
-    });
+      menuType: 'none',
+    } as TableViewState);
     const [state, setState] = useState(initState);
+    const specialStatus = useRef('none' as 'none' | 'addLine');
     const scale = useRef(1);
     const mouseInfo = useRef({
       button0: false,
@@ -222,69 +258,170 @@ export namespace AppEditorView {
       focus.current.lines.clear();
       focus.current.texts.clear();
     }, []);
+    if (focus.current.points.size === 0 && specialStatus.current === 'addLine') {
+      specialStatus.current = 'none';
+    }
+    const deleteFocus = useCallback(() => {
+      focus.current.points.forEach(ind => {
+        controller.removePoint(ind);
+      });
+      focus.current.lines.forEach(ind => {
+        controller.removeLine(ind);
+      });
+      focus.current.texts.forEach(ind => {
+        controller.removeText(ind);
+      });
+      blurAll();
+      emitter.emit('save');
+    }, [blurAll, controller, emitter]);
     const transformArgs = useRef({ x: 0, y: 0 });
-    const { menuType, pointMenu, lineMenu, textMenu, textResizeBuff } = state;
+    const { menuType, pointMenu, lineMenu, textMenu, textResizeBuff, blankMenu } = state;
     const clearMenuState = useCallback(() => {
+      if (menuType === 'text-resize') {
+        emitter.emit('save');
+      }
       setState({
         menuType: 'none',
-        pointMenu: undefined,
-        lineMenu: undefined,
-        textMenu: undefined,
-        textResizeBuff: undefined,
       });
-    }, []);
-    const points = fileContent.points.map((point, ind) => (
-      <g key={ind}
-        onMouseDown={ev => {
-          if (ev.button === 0) {
-            const points = focus.current.points;
-            if (!ev.ctrlKey) {
-              blurAll();
-              points.add(ind);
-            } else {
-              if (points.has(ind)) {
-                points.delete(ind);
-              } else {
-                points.add(ind);
-              }
-            }
-            commonMouseDown(ev);
-            ev.stopPropagation();
-          }
-        }}
-        onContextMenu={ev => {
-          setState({ menuType: 'point', pointMenu: { controller, point, ind, rect: ev.currentTarget.getBoundingClientRect() }, lineMenu: undefined, textMenu: undefined, textResizeBuff: undefined });
-          ev.preventDefault();
-          ev.stopPropagation();
-        }}
-      >
-        <PointView point={point} active={active[ind]} focus={focus.current.points.has(ind)} />
-      </g>
-    ));
-    const lines = fileContent.lines.map((line, ind) => {
-      const pointFrom = fileContent.points[line.pointFrom];
-      const pointTo = fileContent.points[line.pointTo];
-      return (
-        <g key={ind}
-          onContextMenu={ev => {
-            setState({ menuType: 'line', pointMenu: undefined, lineMenu: { controller, line, ind, rect: ev.currentTarget.getBoundingClientRect() }, textMenu: undefined, textResizeBuff: undefined });
-            ev.preventDefault();
-            ev.stopPropagation();
-          }}
-        >
-          <LineView pointFrom={pointFrom} pointTo={pointTo} notGate={line.notGate} active={active[line.pointFrom]} />
-        </g>
-      );
-    });
-    const texts = fileContent.texts.map((text, ind) => {
+    }, [emitter, menuType]);
+    const points = fileContent.points.map((point, ind) => {
+      const onMenu = (ev: React.MouseEvent<SVGGElement, MouseEvent>) => {
+        if (!focus.current.points.has(ind)) {
+          blurAll();
+          focus.current.points.add(ind);
+        }
+        setState({
+          menuType: 'point',
+          pointMenu: {
+            controller, point, ind,
+            rect: ev.currentTarget.getBoundingClientRect()
+          },
+        });
+        ev.preventDefault();
+        ev.stopPropagation();
+      };
       return (
         <g key={ind}
           onMouseDown={ev => {
             if (ev.button === 0) {
+              if (specialStatus.current === 'addLine') {
+                if (focus.current.points.size === 0) {
+                  AppAlert.alert('找不到需要添加边的点');
+                } else {
+                  focus.current.points.forEach(v => {
+                    controller.addLine({
+                      pointFrom: v,
+                      pointTo: ind,
+                      notGate: false,
+                    });
+                  });
+                  specialStatus.current = 'none';
+                  emitter.emit('save');
+                  return;
+                }
+              }
+              const points = focus.current.points;
+              if (!ev.ctrlKey) {
+                if (!points.has(ind)) {
+                  blurAll();
+                  points.add(ind);
+                }
+              } else {
+                if (points.has(ind)) {
+                  points.delete(ind);
+                } else {
+                  points.add(ind);
+                }
+              }
+              commonMouseDown(ev);
+              ev.stopPropagation();
+            }
+          }}
+          onContextMenu={onMenu}
+          onDoubleClick={onMenu}
+        >
+          <PointView point={point} active={active[ind]} focus={focus.current.points.has(ind)} />
+        </g>
+      );
+    });
+    const lines = fileContent.lines.map((line, ind) => {
+      const pointFrom = fileContent.points[line.pointFrom];
+      const pointTo = fileContent.points[line.pointTo];
+      const onMenu = (ev: React.MouseEvent<SVGGElement, MouseEvent>) => {
+        if (!focus.current.lines.has(ind)) {
+          blurAll();
+          focus.current.lines.add(ind);
+        }
+        setState({
+          menuType: 'line',
+          lineMenu: {
+            controller, line, ind,
+            rect: ev.currentTarget.getBoundingClientRect()
+          },
+        });
+        ev.preventDefault();
+        ev.stopPropagation();
+      };
+      return (
+        <g key={ind}
+          onMouseDown={ev => {
+            if (specialStatus.current === 'addLine') {
+              specialStatus.current = 'none';
+            }
+            if (ev.button === 0) {
+              const lines = focus.current.lines;
+              if (!ev.ctrlKey) {
+                if (!lines.has(ind)) {
+                  blurAll();
+                  lines.add(ind);
+                }
+              } else {
+                if (lines.has(ind)) {
+                  lines.delete(ind);
+                } else {
+                  lines.add(ind);
+                }
+              }
+              commonMouseDown(ev);
+              ev.stopPropagation();
+            }
+          }}
+          onContextMenu={onMenu}
+          onDoubleClick={onMenu}
+        >
+          <LineView pointFrom={pointFrom} pointTo={pointTo} notGate={line.notGate} active={active[line.pointFrom]} focus={focus.current.lines.has(ind)} />
+        </g>
+      );
+    });
+    const texts = fileContent.texts.map((text, ind) => {
+      const onMenu = (ev: React.MouseEvent<SVGGElement, MouseEvent>) => {
+        if (!focus.current.texts.has(ind)) {
+          blurAll();
+          focus.current.texts.add(ind);
+        }
+        setState({
+          menuType: 'text',
+          textMenu: {
+            controller, text, ind,
+            rect: ev.currentTarget.getBoundingClientRect()
+          }
+        });
+        ev.preventDefault();
+        ev.stopPropagation();
+      };
+      return (
+        <g key={ind}
+          onMouseDown={ev => {
+            if (specialStatus.current === 'addLine') {
+              specialStatus.current = 'none';
+            }
+            if (ev.button === 0) {
               const texts = focus.current.texts;
               if (!ev.ctrlKey) {
-                blurAll();
-                texts.add(ind);
+                if (!texts.has(ind)) {
+                  blurAll();
+                  texts.add(ind);
+                }
               } else {
                 if (texts.has(ind)) {
                   texts.delete(ind);
@@ -296,11 +433,8 @@ export namespace AppEditorView {
               ev.stopPropagation();
             }
           }}
-          onContextMenu={ev => {
-            setState({ menuType: 'text', pointMenu: undefined, lineMenu: undefined, textMenu: { controller, text, ind, rect: ev.currentTarget.getBoundingClientRect() }, textResizeBuff: undefined });
-            ev.preventDefault();
-            ev.stopPropagation();
-          }}
+          onContextMenu={onMenu}
+          onDoubleClick={onMenu}
         >
           <TextView x={text.x} y={text.y} str={text.str} size={text.size} focus={focus.current.texts.has(ind)} />
         </g>
@@ -309,9 +443,10 @@ export namespace AppEditorView {
     const renderMenu = () => {
       if (menuType === 'point' && pointMenu) {
         const { point, controller, ind, rect } = pointMenu;
+        const focusSize = focus.current.points.size;
         return (
           <AppOptionList
-            options={[point.power ? '清除源' : '生成源', '', '删除节点']}
+            options={[point.power ? '清除源' : '生成源', focusSize > 1 ? '添加多条边' : '添加边', '', '删除']}
             symbol={point}
             headerNodeRect={{ left: rect.right, bottom: rect.bottom }}
             curtain={false}
@@ -319,9 +454,10 @@ export namespace AppEditorView {
               if (res === '清除源' || res === '生成源') {
                 controller.setPoint(ind, { power: !point.power });
                 emitter.emit('save');
-              } else if (res === '删除节点') {
-                controller.removePoint(ind);
-                emitter.emit('save');
+              } else if (res === '删除') {
+                deleteFocus();
+              } else if (res === '添加边' || res === '添加多条边') {
+                specialStatus.current = 'addLine';
               }
               clearMenuState();
             }}
@@ -333,8 +469,8 @@ export namespace AppEditorView {
           <AppOptionList
             options={
               line.notGate
-                ? ['取消非门', '转换方向', '', '删除连线']
-                : ['设置非门', '', '删除连线']
+                ? ['取消非门', '转换方向', '', '删除']
+                : ['设置非门', '', '删除']
             }
             symbol={line}
             headerNodeRect={{ left: (rect.left + rect.right) / 2, bottom: (rect.top + rect.bottom) / 2 }}
@@ -346,9 +482,8 @@ export namespace AppEditorView {
               } else if (res === '转换方向') {
                 controller.setLine(ind, 'reverse');
                 emitter.emit('save');
-              } else if (res === '删除连线') {
-                controller.removeLine(ind);
-                emitter.emit('save');
+              } else if (res === '删除') {
+                deleteFocus();
               }
               clearMenuState();
             }}
@@ -358,7 +493,7 @@ export namespace AppEditorView {
         const { text, controller, ind, rect } = textMenu;
         return (
           <AppOptionList
-            options={['编辑文字', '改变大小 >', '', '删除文字']}
+            options={['编辑文字', '改变大小 >', '', '删除']}
             symbol={text}
             headerNodeRect={{ left: rect.right, bottom: rect.bottom }}
             curtain={false}
@@ -370,11 +505,10 @@ export namespace AppEditorView {
                     emitter.emit('save');
                   }
                 });
-              } else if (res === '删除文字') {
-                controller.removeText(ind);
-                emitter.emit('save');
+              } else if (res === '删除') {
+                deleteFocus();
               } else if (res === '改变大小 >') {
-                setState({ ...state, menuType: 'text-resize' });
+                setState({ menuType: 'text-resize', textMenu });
                 return;
               }
               clearMenuState();
@@ -393,19 +527,53 @@ export namespace AppEditorView {
             resolve={res => {
               if (res === '放大') {
                 const size = buffSize + Math.max(1, Math.round(buffSize * .1));
-                setState({ ...state, textResizeBuff: size });
+                setState({ menuType: 'text-resize', textResizeBuff: size, textMenu });
                 controller.setText(ind, { size });
               } else if (res === '缩小') {
                 const size = Math.max(1, buffSize - Math.max(1, Math.round(buffSize * .1)));
-                setState({ ...state, textResizeBuff: size });
+                setState({ menuType: 'text-resize', textResizeBuff: size, textMenu });
                 controller.setText(ind, { size });
               } else if (res === '< 取消') {
                 controller.setText(ind, { size: text.size });
-                setState({ ...state, menuType: 'text', textResizeBuff: undefined });
+                setState({ menuType: 'text', textMenu });
               } else if (res === '完成') {
-                emitter.emit('save');
                 clearMenuState();
               }
+            }}
+          />
+        );
+      } else if (menuType === 'blank' && blankMenu) {
+        const { controller, point, menuPos } = blankMenu;
+        return (
+          <AppOptionList
+            options={['新建节点', '新建文本']}
+            symbol={menuPos}
+            headerNodeRect={{ left: menuPos.x, bottom: menuPos.y }}
+            curtain={false}
+            resolve={res => {
+              if (res === '新建节点') {
+                controller.addPoint({
+                  power: false,
+                  x: point.x / scale.current - transformArgs.current.x,
+                  y: point.y / scale.current - transformArgs.current.y,
+                });
+                emitter.emit('save');
+              } else if (res === '新建文本') {
+                AppAlert.prompt('编辑文字', '新建文本').then(v => {
+                  if (v !== null) {
+                    controller.addText({
+                      str: v,
+                      size: 20,
+                      x: point.x / scale.current - transformArgs.current.x,
+                      y: point.y / scale.current - transformArgs.current.y,
+                    });
+                    if (v.trim() !== '') {
+                      emitter.emit('save');
+                    }
+                  }
+                });
+              }
+              clearMenuState();
             }}
           />
         );
@@ -469,18 +637,54 @@ export namespace AppEditorView {
         });
       }
     }, [emitter, controller]);
+    const onKeyUp = useCallback((ev: KeyboardEvent) => {
+      if (ev.key === 'Delete') {
+        deleteFocus();
+      }
+    }, [deleteFocus]);
+    const onOuterChange = useCallback(() => {
+      blurAll();
+      specialStatus.current = 'none';
+    }, [blurAll]);
     useEffect(() => {
       emitter.addListener('editing', editing);
+      emitter.addListener('undo', onOuterChange);
+      emitter.addListener('redo', onOuterChange);
       emitter.addListener('save', onSave);
       window.addEventListener('mouseup', onMouseUp);
       window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('keyup', onKeyUp);
       return () => {
         emitter.removeListener('editing', editing);
+        emitter.removeListener('undo', onOuterChange);
+        emitter.removeListener('redo', onOuterChange);
         emitter.removeListener('save', onSave);
         window.removeEventListener('mouseup', onMouseUp);
         window.removeEventListener('mousemove', onMouseMove);
+        window.removeEventListener('keyup', onKeyUp);
       };
-    }, [emitter, editing, onSave, onMouseUp, onMouseMove]);
+    }, [emitter, editing, onSave, onMouseUp, onMouseMove, onKeyUp, onOuterChange]);
+    const onBlankMenu = (ev: React.MouseEvent<SVGSVGElement, MouseEvent>) => {
+      blurAll();
+      const rect = ev.currentTarget.getBoundingClientRect();
+      const relMouse = {
+        x: ev.clientX - rect.left,
+        y: ev.clientY - rect.top,
+      };
+      setState({
+        menuType: 'blank',
+        blankMenu: {
+          controller,
+          point: relMouse,
+          menuPos: {
+            x: ev.clientX,
+            y: ev.clientY,
+          },
+        }
+      });
+      ev.stopPropagation();
+      ev.preventDefault();
+    };
     return (
       <div style={{
         width: '100%',
@@ -505,28 +709,35 @@ export namespace AppEditorView {
               });
               scale.current = (scale.current * rate);
             } else {
+              scale.current = (scale.current / rate);
               transformArgs.current = ({
-                x: transformArgs.current.x - relMouse.x * (1 / rate - 1) / scale.current,
-                y: transformArgs.current.y - relMouse.y * (1 / rate - 1) / scale.current,
+                x: transformArgs.current.x + relMouse.x * (rate - 1) / scale.current,
+                y: transformArgs.current.y + relMouse.y * (rate - 1) / scale.current,
               });
-              scale.current = (scale.current / 1.05);
             }
           }}
           onMouseDown={ev => {
             if (ev.button === 0) {
               commonMouseDown(ev);
               blurAll();
+              if (specialStatus.current === 'addLine') {
+                specialStatus.current = 'none';
+              }
             }
           }}
-          onContextMenu={ev => {
-            clearMenuState();
-            AppAlert.alert('空白处右键菜单：尚未开发');
-            ev.stopPropagation();
-            ev.preventDefault();
-          }}
+          onContextMenu={onBlankMenu}
+          onDoubleClick={onBlankMenu}
         >
+          {
+            specialStatus.current === 'addLine'
+              ? (
+                <text x={10} y={30} fontSize={16} style={{ userSelect: 'none' }}>
+                  {focus.current.points.size > 1 ? '正在批量加边...' : '正在加边...'}
+                </text>
+              ) : undefined
+          }
           <g transform={`scale(${scale.current},${scale.current})`}>
-            <g transform={`translate(${transformArgs.current.x},${transformArgs.current.y})`}>
+            <g transform={`translate(${transformArgs.current.x}, ${transformArgs.current.y})`}>
               {lines}
               {points}
               {texts}

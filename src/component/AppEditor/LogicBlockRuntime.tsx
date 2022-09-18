@@ -1,3 +1,4 @@
+import { AppAlert } from "../BasicModule/AppAlert";
 import { ModifyOption } from "../BasicModule/CommonHead";
 import { LogicBlockFileModule } from "./AppFileContent";
 const renderLoopInOneTick = 5;
@@ -145,6 +146,10 @@ export class LogicBlockRuntime {
   }
   private setText(u: number, value: ModifyOption<LogicText>) {
     const text = this.texts[u];
+    if (value.str !== undefined && value.str.trim() === '') {
+      AppAlert.confirm('无法添加空文本窗', false);
+      return;
+    }
     if (text) {
       text.size = value.size ?? text.size;
       text.x = value.x ?? text.x;
@@ -181,6 +186,9 @@ export class LogicBlockRuntime {
   }
   private addLine(value: LogicLine) {
     if (value.pointFrom !== value.pointTo && this.points[value.pointFrom] && this.points[value.pointTo]) {
+      if (this.lineWithPoint[value.pointFrom].some(v => v.pointFrom === value.pointTo || v.pointTo === value.pointTo)) {
+        return;
+      }
       const line = { ...value };
       this.lines.push(line);
       this.lineWithPoint[value.pointFrom].push(line);
@@ -210,6 +218,10 @@ export class LogicBlockRuntime {
     this.rebuildMap();
   }
   private addText(text: LogicText) {
+    if (text.str.trim() === '') {
+      AppAlert.confirm('无法添加空文本窗', false);
+      return;
+    }
     this.texts.push({ ...text });
   }
   private moveText(u: number, { dx, dy }: { dx: number; dy: number; }): void {

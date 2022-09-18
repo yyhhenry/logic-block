@@ -46,7 +46,7 @@ export class AppEditorHeader extends React.Component<AppEditorHeaderProps>{
             options: ['节点/连边/文本', '撤销/重做'],
             resolve: res => {
               if (res === '节点/连边/文本') {
-                AppAlert.confirm('节点/连边/文本处右键查看菜单，左键拖动，或空白处右键添加（TODO）', false);
+                AppAlert.confirm('节点/连边/文本处右键或双击查看菜单，Del键批量删除，左键拖动，空白处右键或双击添加（TODO）', false);
               } else if (res === '撤销/重做') {
                 AppAlert.confirm(`撤销重做对一切元素均有效，并具有保存深度上限${AppEditorRecordDepth}，并且会导致所有节点的状态重置`, false);
               }
