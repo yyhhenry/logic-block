@@ -286,6 +286,9 @@ export namespace AppEditorView {
     }, [emitter, menuType]);
     const points = fileContent.points.map((point, ind) => {
       const onMenu = (ev: React.MouseEvent<SVGGElement, MouseEvent>) => {
+        if (specialStatus.current === 'addLine') {
+          return;
+        }
         if (!focus.current.points.has(ind)) {
           blurAll();
           focus.current.points.add(ind);
@@ -303,8 +306,8 @@ export namespace AppEditorView {
       return (
         <g key={ind}
           onMouseDown={ev => {
-            if (ev.button === 0) {
-              if (specialStatus.current === 'addLine') {
+            if (specialStatus.current === 'addLine') {
+              if (ev.button === 0) {
                 if (focus.current.points.size === 0) {
                   AppAlert.alert('找不到需要添加边的点');
                 } else {
@@ -320,6 +323,9 @@ export namespace AppEditorView {
                   return;
                 }
               }
+              return;
+            }
+            if (ev.button === 0) {
               const points = focus.current.points;
               if (!ev.ctrlKey) {
                 if (!points.has(ind)) {
@@ -348,6 +354,9 @@ export namespace AppEditorView {
       const pointFrom = fileContent.points[line.pointFrom];
       const pointTo = fileContent.points[line.pointTo];
       const onMenu = (ev: React.MouseEvent<SVGGElement, MouseEvent>) => {
+        if (specialStatus.current === 'addLine') {
+          return;
+        }
         if (!focus.current.lines.has(ind)) {
           blurAll();
           focus.current.lines.add(ind);
@@ -366,7 +375,7 @@ export namespace AppEditorView {
         <g key={ind}
           onMouseDown={ev => {
             if (specialStatus.current === 'addLine') {
-              specialStatus.current = 'none';
+              return;
             }
             if (ev.button === 0) {
               const lines = focus.current.lines;
@@ -395,6 +404,9 @@ export namespace AppEditorView {
     });
     const texts = fileContent.texts.map((text, ind) => {
       const onMenu = (ev: React.MouseEvent<SVGGElement, MouseEvent>) => {
+        if (specialStatus.current === 'addLine') {
+          return;
+        }
         if (!focus.current.texts.has(ind)) {
           blurAll();
           focus.current.texts.add(ind);
@@ -413,7 +425,7 @@ export namespace AppEditorView {
         <g key={ind}
           onMouseDown={ev => {
             if (specialStatus.current === 'addLine') {
-              specialStatus.current = 'none';
+              return;
             }
             if (ev.button === 0) {
               const texts = focus.current.texts;
@@ -441,6 +453,9 @@ export namespace AppEditorView {
       );
     });
     const renderMenu = () => {
+      if (specialStatus.current === 'addLine') {
+        return;
+      }
       if (menuType === 'point' && pointMenu) {
         const { point, controller, ind, rect } = pointMenu;
         const focusSize = focus.current.points.size;
@@ -588,8 +603,15 @@ export namespace AppEditorView {
       disabled.current = false;
     }, []);
     const moveActivated = useRef(false);
+    const blankMouseDown = useRef(false);
     const onMouseUp = useCallback((ev: MouseEvent) => {
       if (ev.button === 0) {
+        if (blankMouseDown.current && !moveActivated.current) {
+          blurAll();
+          if (specialStatus.current === 'addLine') {
+            specialStatus.current = 'none';
+          }
+        }
         mouseInfo.current = ({
           x: ev.clientX,
           y: ev.clientY,
@@ -600,7 +622,8 @@ export namespace AppEditorView {
           emitter.emit('save');
         }
       }
-    }, [emitter]);
+      blankMouseDown.current = false;
+    }, [emitter, blurAll]);
     const onMouseMove = useCallback((ev: MouseEvent) => {
       if (mouseInfo.current.button0) {
         const movement = {
@@ -614,7 +637,7 @@ export namespace AppEditorView {
         moveActivated.current = true;
         const points = focus.current.points;
         const texts = focus.current.texts;
-        if (points.size || texts.size) {
+        if ((points.size || texts.size) && !blankMouseDown.current) {
           if (!disabled.current) {
             emitter.emit('editing');
           }
@@ -718,11 +741,8 @@ export namespace AppEditorView {
           }}
           onMouseDown={ev => {
             if (ev.button === 0) {
+              blankMouseDown.current = true;
               commonMouseDown(ev);
-              blurAll();
-              if (specialStatus.current === 'addLine') {
-                specialStatus.current = 'none';
-              }
             }
           }}
           onContextMenu={onBlankMenu}

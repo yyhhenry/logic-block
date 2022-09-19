@@ -43,12 +43,14 @@ export class AppEditorHeader extends React.Component<AppEditorHeaderProps>{
           },
           {
             name: '帮助',
-            options: ['节点/连边/文本', '撤销/重做'],
+            options: ['节点/连边/文本', '撤销/重做', '选中'],
             resolve: res => {
               if (res === '节点/连边/文本') {
-                AppAlert.confirm('节点/连边/文本处右键或双击查看菜单，Del键批量删除，左键拖动，空白处右键或双击添加（TODO）', false);
+                AppAlert.confirm('节点/连边/文本/空白处右键或双击查看菜单', false);
               } else if (res === '撤销/重做') {
                 AppAlert.confirm(`撤销重做对一切元素均有效，并具有保存深度上限${AppEditorRecordDepth}，并且会导致所有节点的状态重置`, false);
+              } else if (res === '选中') {
+                AppAlert.confirm('按住Ctrl键单击以多选，Del键批量删除，左键批量拖动', false);
               }
               this.setState({ menuState: undefined });
             },
