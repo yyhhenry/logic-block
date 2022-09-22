@@ -17,9 +17,11 @@ export class AppEditorHeader extends React.Component<AppEditorHeaderProps>{
         menu={[
           {
             name: '文件',
-            options: ['回到主界面', '', '关于'],
+            options: ['保存到本地', '回到主界面', '', '关于'],
             resolve: res => {
-              if (res === '关于') {
+              if (res === '保存到本地') {
+                this.props.emitter.emit('saveToLocal');
+              } else if (res === '关于') {
                 AppAlert.confirm(globalAboutDoc, false);
               } else if (res === '回到主界面') {
                 AppAlert.confirm('确认要回到主界面吗').then(v => {

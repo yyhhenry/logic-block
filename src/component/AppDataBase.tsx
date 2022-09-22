@@ -27,7 +27,7 @@ interface openDataBaseOption {
 function openDataBase(databaseName: string, option?: openDataBaseOption) {
   let { version, upgradeListener } = option ?? {};
   return new Promise<IDBDatabase>(async resolve => {
-    let dbRequest = indexedDB.open(databaseName, version);
+    const dbRequest = indexedDB.open(databaseName, version);
     dbRequest.addEventListener('success', () => {
       console.info('indexedDB.open(): [success]');
       resolve(dbRequest.result);
@@ -48,12 +48,15 @@ async function initDataBase(databaseName: string, storeNames: StoreInfoType[], a
   async function initStoreNameBase(databaseName: string, storeInfos: StoreInfoType[]) {
     const database = await openDataBase(databaseName);
     const currentNames = database.objectStoreNames;
-    const transaction = database.transaction(currentNames, 'readonly');
+    const transaction = currentNames.length?database.transaction(currentNames, 'readonly'):undefined;
     const checkStoreInfo = (storeInfo: StoreInfoType) => {
       const { storeName, keyPath } = storeInfo;
       if (!currentNames.contains(storeName)) {
         return false;
       } else {
+        if(!transaction){
+          return false;
+        }
         const curKeyPath = transaction.objectStore(storeName).keyPath;
         if (Array.isArray(keyPath)) {
           if (!Array.isArray(curKeyPath)) {
@@ -75,7 +78,7 @@ async function initDataBase(databaseName: string, storeNames: StoreInfoType[], a
       return database;
     }
     const version = database.version + 1;
-    transaction.commit();
+    transaction?.commit();
     database.close();
     (await openDataBase(databaseName, {
       version,
@@ -142,7 +145,7 @@ export class AppDataBase {
         const transaction = database.transaction(storeName, 'readwrite');
         callback(transaction.objectStore(storeName));
         transaction.addEventListener('complete', () => {
-          resolve(undefined);
+          resolve();
         });
         transaction.addEventListener('error', () => {
           reject(new Error(`modifyTransaction(): Failed to add or update in store ${storeName}`));

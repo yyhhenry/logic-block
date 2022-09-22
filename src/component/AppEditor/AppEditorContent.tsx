@@ -6,6 +6,7 @@ import { AppFileContent, isAppFileContent, LogicBlockFileModule } from './AppFil
 import { LogicBlockRuntime } from './LogicBlockRuntime';
 import { AppEditorView } from './AppEditorView';
 import { UndoRecord } from '../BasicModule/UndoRecord';
+import { createDownload } from '../BasicModule/CommonHead';
 const database = AppDataBase.getDataBase('yyhhenry-logic-block');
 export const AppEditorRecordDepth = 10;
 export interface AppEditorContentProps {
@@ -52,7 +53,6 @@ export const AppEditorContent: React.FC<AppEditorContentProps> = props => {
   const saveToDataBase = useCallback((content: LogicBlockFileModule.LogicBlockFileContent) => {
     (value => {
       database.modifyTransaction('file', store => {
-        store.clear();
         store.put(value);
       });
     })({
@@ -99,18 +99,28 @@ export const AppEditorContent: React.FC<AppEditorContentProps> = props => {
       saveToDataBase(content);
     }
   }, [undoRecord, runtime, filename, saveToDataBase]);
+  const saveToLocal = useCallback(() => {
+    AppAlert.confirm('确定要保存到本地吗？').then(v => {
+      if (v && runtime !== undefined && filename !== undefined) {
+        const content = runtime.renderFileContent();
+        createDownload(encodeURIComponent(filename) + '.logic-block.json', JSON.stringify(content));
+      }
+    });
+  }, [runtime, filename]);
   useEffect(() => {
     emitter.addListener('undo', undo);
     emitter.addListener('redo', redo);
     emitter.addListener('editing', editing);
     emitter.addListener('save', save);
+    emitter.addListener('saveToLocal', saveToLocal);
     return () => {
       emitter.removeListener('undo', undo);
       emitter.removeListener('redo', redo);
       emitter.removeListener('editing', editing);
       emitter.removeListener('save', save);
+      emitter.removeListener('saveToLocal', saveToLocal);
     };
-  }, [emitter, redo, undo, save, editing]);
+  }, [emitter, redo, undo, save, editing, saveToLocal]);
   return (
     <div
       style={{
@@ -153,7 +163,7 @@ export const AppEditorContent: React.FC<AppEditorContentProps> = props => {
 };
 
 // (() => {
-//   let database = AppDataBase.getDataBase('yyhhenry-logic-block');
+//   const database = AppDataBase.getDataBase('yyhhenry-logic-block');
 //   database.modifyTransaction('file', store => {
 //     store.clear();
 //     store.put({ filename: 'yyh', content: { "points": [{ "x": 428, "y": 238, "power": false }, { "x": 424, "y": 405, "power": true }, { "x": 560, "y": 280, "power": false }, { "x": 601, "y": 308, "power": false }, { "x": 656, "y": 308, "power": false }, { "x": 564, "y": 334, "power": false }, { "x": 566, "y": 459, "power": false }, { "x": 660, "y": 458, "power": false }, { "x": 795, "y": 360, "power": false }, { "x": 835, "y": 385, "power": false }, { "x": 882, "y": 386, "power": false }, { "x": 792, "y": 410, "power": false }, { "x": 976, "y": 342, "power": false }, { "x": 239, "y": 431, "power": false }, { "x": 239, "y": 223, "power": false }, { "x": 1205, "y": 341, "power": false }], "lines": [{ "pointFrom": 2, "pointTo": 3, "notGate": true }, { "pointFrom": 3, "pointTo": 4, "notGate": true }, { "pointFrom": 5, "pointTo": 3, "notGate": true }, { "pointFrom": 0, "pointTo": 2, "notGate": false }, { "pointFrom": 1, "pointTo": 5, "notGate": false }, { "pointFrom": 1, "pointTo": 6, "notGate": false }, { "pointFrom": 6, "pointTo": 7, "notGate": true }, { "pointFrom": 8, "pointTo": 9, "notGate": true }, { "pointFrom": 9, "pointTo": 10, "notGate": true }, { "pointFrom": 11, "pointTo": 9, "notGate": true }, { "pointFrom": 4, "pointTo": 8, "notGate": false }, { "pointFrom": 7, "pointTo": 11, "notGate": false }, { "pointFrom": 10, "pointTo": 12, "notGate": false }, { "pointFrom": 1, "pointTo": 13, "notGate": false }, { "pointFrom": 0, "pointTo": 14, "notGate": false }, { "pointFrom": 12, "pointTo": 15, "notGate": false }], "texts": [{ "str": "输入1", "x": 200, "y": 180, "size": 25 }, { "str": "输入2", "x": 200, "y": 480, "size": 25 }, { "str": "AND", "x": 600, "y": 280, "size": 25 }, { "str": "NOT", "x": 600, "y": 500, "size": 25 }, { "str": "AND", "x": 800, "y": 440, "size": 25 }, { "str": "无论输入是什么，输出都是False", "x": 600, "y": 580, "size": 16 }] } } as AppFileContent);

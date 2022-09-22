@@ -1,7 +1,10 @@
 import React from 'react';
+import { AppDataBase } from '../AppDataBase';
+import { createBlankAppFileContent } from '../AppEditor/AppFileContent';
 import { AppAlert } from '../BasicModule/AppAlert';
 import { AppCommonHeaderProps, AppHeader } from '../BasicModule/AppHeader';
-import { globalAboutDoc } from '../BasicModule/CommonHead';
+import { globalAboutDoc, MyRoute } from '../BasicModule/CommonHead';
+import { AppFileInfo } from './AppFileInfo';
 
 type HomeMenuOptionType = '文件' | '选项';
 export class AppHomeHeader extends React.Component<AppCommonHeaderProps>{
@@ -17,7 +20,35 @@ export class AppHomeHeader extends React.Component<AppCommonHeaderProps>{
               if (res === '关于') {
                 AppAlert.confirm(globalAboutDoc, false);
               } else if (res === '新建文件') {
-                AppAlert.alert('[新建文件] - 敬请期待');
+                AppAlert.prompt('输入一个合法的文件名', `${Date.now()}`).then(s => {
+                  if (s !== null) {
+                    const database = AppDataBase.getDataBase('yyhhenry-logic-block');
+                    const modifyContent = () => {
+                      database.modifyTransaction('file', db => {
+                        db.put(createBlankAppFileContent(s));
+                      }).then(() => {
+                        MyRoute.routeTo('/AppEditor', {
+                          filename: s,
+                        });
+                      });
+                    };
+                    database.countTransaction('file-list', s).then(cnt => {
+                      if (cnt) {
+                        AppAlert.confirm(`${s}是一个已经存在的文件，确定要覆盖吗`).then(v => {
+                          if (v) {
+                            modifyContent();
+                          }
+                        });
+                      } else {
+                        database.modifyTransaction('file-list', db => {
+                          db.put({ filename: s, color: 'gray' } as AppFileInfo);
+                        }).then(() => {
+                          modifyContent();
+                        });
+                      }
+                    });
+                  }
+                });
               } else if (res === '导入文件') {
                 AppAlert.alert('[导入文件] - 敬请期待');
               }

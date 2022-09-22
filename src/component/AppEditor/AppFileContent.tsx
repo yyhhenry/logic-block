@@ -42,3 +42,13 @@ export interface AppFileContent {
 export function isAppFileContent(obj: unknown): obj is AppFileContent {
   return isObject(obj) && typeof obj.filename == 'string' && LogicBlockFileModule.isRedstoneFileContent(obj.content);
 }
+export function createBlankAppFileContent(filename: string): AppFileContent {
+  return {
+    filename,
+    content: {
+      points: [],
+      lines: [],
+      texts: [],
+    },
+  };
+}

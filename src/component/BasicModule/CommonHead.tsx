@@ -5,6 +5,13 @@ export function isObject(obj: unknown): obj is Record<keyof any, unknown> {
 export function isTList<T>(arr: unknown, isT: (v: unknown) => v is T): arr is T[] {
   return Array.isArray(arr) && arr.every(v => isT(v));
 }
+export function createDownload(filename: string, fileContent: string) {
+  const aTag = document.createElement('a');
+  aTag.download = filename;
+  const blob = new Blob([fileContent]);
+  aTag.href = URL.createObjectURL(blob);
+  aTag.click();
+}
 export namespace ZIndexTable {
   export const menuOption = 5;
   export const confirm = 11;
