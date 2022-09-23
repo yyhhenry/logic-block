@@ -45,6 +45,8 @@ export namespace ZIndexTable {
 }
 export namespace ColorTable {
   export const curtain = 'rgb(0,0,0,.2)';
+  export const starCard = 'rgb(220,220,160)';
+  export const normalCard = 'gray';
 }
 export const globalAboutDoc = `
 本软件由yyhhenry提供，采用React框架，详见

@@ -3,7 +3,7 @@ import { AppDataBase } from '../AppDataBase';
 import { AppFileContent, createBlankAppFileContent, isAppFileContent, localAppFileExtName } from '../AppEditor/AppFileContent';
 import { AppAlert } from '../BasicModule/AppAlert';
 import { AppCommonHeaderProps, AppHeader } from '../BasicModule/AppHeader';
-import { globalAboutDoc, MyRoute, openFile } from '../BasicModule/CommonHead';
+import { ColorTable, globalAboutDoc, MyRoute, openFile } from '../BasicModule/CommonHead';
 import { AppFileInfo } from './AppFileInfo';
 
 type HomeMenuOptionType = '文件' | '选项';
@@ -41,7 +41,7 @@ export class AppHomeHeader extends React.Component<AppCommonHeaderProps>{
                         });
                       } else {
                         database.modifyTransaction('file-list', db => {
-                          db.put({ filename: s, color: 'gray' } as AppFileInfo);
+                          db.put({ filename: s, color: ColorTable.normalCard } as AppFileInfo);
                         }).then(() => {
                           modifyContent();
                         });
@@ -59,7 +59,7 @@ export class AppHomeHeader extends React.Component<AppCommonHeaderProps>{
                         database.modifyTransaction('file-list', store => {
                           store.put({
                             filename,
-                            color: 'gray',
+                            color: ColorTable.normalCard,
                           } as AppFileInfo);
                         }).then(() =>
                           database.modifyTransaction('file', store => {
