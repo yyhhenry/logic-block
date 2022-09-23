@@ -10,12 +10,12 @@ class App extends React.Component<{}, {}> {
       <div>
         <AppAlertElement />
         {(() => {
-          let page = MyRoute.getRoute();
-          if (page === '/') {
+          const page = MyRoute.getRoute();
+          if (page === MyRoute.RouteTable.Home) {
             return (
               <AppHome />
             );
-          } else if (page === '/AppEditor') {
+          } else if (page === MyRoute.RouteTable.AppEditor) {
             return (
               <AppEditor />
             );

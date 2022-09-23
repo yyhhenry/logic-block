@@ -42,6 +42,7 @@ export interface AppFileContent {
 export function isAppFileContent(obj: unknown): obj is AppFileContent {
   return isObject(obj) && typeof obj.filename == 'string' && LogicBlockFileModule.isRedstoneFileContent(obj.content);
 }
+export const localAppFileExtName = '.logic-block.json';
 export function createBlankAppFileContent(filename: string): AppFileContent {
   return {
     filename,

@@ -2,12 +2,12 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { EventEmitter } from 'stream';
 import { AppDataBase } from '../AppDataBase';
 import { AppAlert } from '../BasicModule/AppAlert';
-import { AppFileContent, isAppFileContent, LogicBlockFileModule } from './AppFileContent';
+import { AppFileContent, isAppFileContent, localAppFileExtName, LogicBlockFileModule } from './AppFileContent';
 import { LogicBlockRuntime } from './LogicBlockRuntime';
 import { AppEditorView } from './AppEditorView';
 import { UndoRecord } from '../BasicModule/UndoRecord';
 import { createDownload } from '../BasicModule/CommonHead';
-const database = AppDataBase.getDataBase('yyhhenry-logic-block');
+const database = AppDataBase.getDataBase();
 export const AppEditorRecordDepth = 10;
 export interface AppEditorContentProps {
   filename?: string;
@@ -103,7 +103,7 @@ export const AppEditorContent: React.FC<AppEditorContentProps> = props => {
     AppAlert.confirm('确定要保存到本地吗？').then(v => {
       if (v && runtime !== undefined && filename !== undefined) {
         const content = runtime.renderFileContent();
-        createDownload(encodeURIComponent(filename) + '.logic-block.json', JSON.stringify(content));
+        createDownload(encodeURIComponent(filename) + localAppFileExtName, JSON.stringify(content));
       }
     });
   }, [runtime, filename]);

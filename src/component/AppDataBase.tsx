@@ -3,8 +3,9 @@ export interface StoreInfoType {
   keyPath: string | string[];
 }
 export type StoreInfoRecordType = Record<string, StoreInfoType[] | undefined>;
+export const logicBlockDataBaseName = 'yyhhenry-logic-block';
 const storeInfoRecord: StoreInfoRecordType = {
-  'yyhhenry-logic-block': [
+  [logicBlockDataBaseName]: [
     {
       storeName: 'file-list',
       keyPath: 'filename',
@@ -19,13 +20,12 @@ const storeInfoRecord: StoreInfoRecordType = {
     },
   ],
 };
-
 interface openDataBaseOption {
   version: number;
   upgradeListener: (database: IDBDatabase) => void;
 }
 function openDataBase(databaseName: string, option?: openDataBaseOption) {
-  let { version, upgradeListener } = option ?? {};
+  const { version, upgradeListener } = option ?? {};
   return new Promise<IDBDatabase>(async resolve => {
     const dbRequest = indexedDB.open(databaseName, version);
     dbRequest.addEventListener('success', () => {
@@ -48,13 +48,13 @@ async function initDataBase(databaseName: string, storeNames: StoreInfoType[], a
   async function initStoreNameBase(databaseName: string, storeInfos: StoreInfoType[]) {
     const database = await openDataBase(databaseName);
     const currentNames = database.objectStoreNames;
-    const transaction = currentNames.length?database.transaction(currentNames, 'readonly'):undefined;
+    const transaction = currentNames.length ? database.transaction(currentNames, 'readonly') : undefined;
     const checkStoreInfo = (storeInfo: StoreInfoType) => {
       const { storeName, keyPath } = storeInfo;
       if (!currentNames.contains(storeName)) {
         return false;
       } else {
-        if(!transaction){
+        if (!transaction) {
           return false;
         }
         const curKeyPath = transaction.objectStore(storeName).keyPath;
@@ -103,12 +103,12 @@ type MyTransactionType = (database: IDBDatabase) => (Promise<void> | void);
 
 export class AppDataBase {
   private static dbList: Record<string, AppDataBase | undefined> = {};
-  static getDataBase(dbName: string): AppDataBase {
-    let dbInList = this.dbList[dbName];
+  static getDataBase(dbName: string = logicBlockDataBaseName): AppDataBase {
+    const dbInList = this.dbList[dbName];
     if (dbInList !== undefined) {
       return dbInList;
     } else {
-      let newDB = new AppDataBase(dbName);
+      const newDB = new AppDataBase(dbName);
       this.dbList[dbName] = newDB;
       return newDB;
     }
@@ -126,7 +126,7 @@ export class AppDataBase {
     }
   }
   private constructor(dbName: string) {
-    let storeInfo = storeInfoRecord[dbName];
+    const storeInfo = storeInfoRecord[dbName];
     if (storeInfo === undefined) {
       return;
     }

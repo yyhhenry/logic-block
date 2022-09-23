@@ -41,9 +41,7 @@ export const AppEditor: React.FC = () => {
   const initState = () => new EventEmitter();
   const [emitter] = useState(() => initState());
   const filename = new URL(window.location.href).searchParams.get('filename') ?? undefined;
-  if (filename) {
-    document.title = `${filename} - LogicBlockEditor`;
-  }
+  document.title = `${filename ?? '未知文件'} - LogicBlockEditor`;
   const onKeyUp = useCallback((ev: KeyboardEvent) => {
     if (ev.key.toLowerCase() === 'z' && ev.ctrlKey) {
       emitter.emit('undo');

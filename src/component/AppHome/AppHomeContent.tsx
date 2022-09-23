@@ -26,7 +26,7 @@ export class AppFileCard extends React.Component<AppFileCardProps> {
               cursor: 'pointer',
             }}
             onClick={() => {
-              MyRoute.routeTo('/AppEditor', {
+              MyRoute.routeTo(MyRoute.RouteTable.AppEditor, {
                 filename: this.props.fileInfo.filename,
               });
             }}
@@ -62,7 +62,7 @@ interface AppHomeContentState {
 export class AppHomeContent extends React.Component<{}, AppHomeContentState> {
   state: Readonly<AppHomeContentState> = { fileList: undefined };
   requestFileListUpdate() {
-    let database = AppDataBase.getDataBase('yyhhenry-logic-block');
+    const database = AppDataBase.getDataBase();
     database.queryAllTransaction('file-list', isAppFileInfo).then(data => {
       this.setState({ fileList: data });
     });

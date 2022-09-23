@@ -1,3 +1,5 @@
+import { AppAlert } from "./AppAlert";
+
 export function isObject(obj: unknown): obj is Record<keyof any, unknown> {
   if (typeof obj !== 'object' || obj === null) return false;
   return true;
@@ -12,6 +14,30 @@ export function createDownload(filename: string, fileContent: string) {
   aTag.href = URL.createObjectURL(blob);
   aTag.click();
 }
+export function openFile(accept: string) {
+  return new Promise<{ filename: string, fileContent: string; }>(resolve => {
+    const inputTag = document.createElement('input');
+    inputTag.type = 'file';
+    inputTag.accept = accept;
+    inputTag.click();
+    const callback = () => {
+      inputTag.removeEventListener('change', callback);
+      if (inputTag.files) {
+        const files = [...inputTag.files];
+        if (files.length) {
+          const file = files[0];
+          const filename = file.name;
+          file.text().then(fileContent => {
+            resolve({ filename, fileContent });
+          });
+        }
+      } else {
+        AppAlert.alert('发生了一些问题');
+      }
+    };
+    inputTag.addEventListener('change', callback);
+  });
+}
 export namespace ZIndexTable {
   export const menuOption = 5;
   export const confirm = 11;
@@ -25,13 +51,17 @@ export const globalAboutDoc = `
 https://gitee.com/yyhhenry/logic-block
 `;
 export namespace MyRoute {
+  export namespace RouteTable {
+    export const Home = '/';
+    export const AppEditor = '/AppEditor';
+  }
   export function getParams() {
     let url = new URL(window.location.href);
     return url.searchParams;
   }
   export function getRoute() {
     let params = getParams();
-    return params.get('page') ?? '/';
+    return params.get('page') ?? RouteTable.Home;
   }
   export function routeTo(src: string, otherParams?: Record<string, string>) {
     let url = new URL(window.location.href);

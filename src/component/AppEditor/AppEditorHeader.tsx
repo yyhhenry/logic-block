@@ -26,7 +26,7 @@ export class AppEditorHeader extends React.Component<AppEditorHeaderProps>{
               } else if (res === '回到主界面') {
                 AppAlert.confirm('确认要回到主界面吗').then(v => {
                   if (v) {
-                    MyRoute.routeTo('/');
+                    MyRoute.routeTo(MyRoute.RouteTable.Home);
                   }
                 });
               }
