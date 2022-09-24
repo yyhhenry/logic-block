@@ -5,6 +5,7 @@ import { Geometry } from '../BasicModule/Geometry';
 import { EventEmitter } from 'stream';
 import { AppOptionList } from '../BasicModule/AppOptionList';
 import { AppAlert } from '../BasicModule/AppAlert';
+import { ColorTable, toggleSet } from '../BasicModule/CommonHead';
 const GeoPoint = Geometry.Point;
 export namespace EditorColorTable {
   export const activeLine = 'rgb(30,60,250)';
@@ -233,7 +234,13 @@ export namespace AppEditorView {
       menuType: 'none',
     } as TableViewState);
     const [state, setState] = useState(initState);
-    const specialStatus = useRef('none' as 'none' | 'addLine');
+    const specialStatus = useRef('none' as 'none' | 'addLine' | 'select');
+    const selectFrom = useRef(undefined as {
+      x: number;
+      y: number;
+      offsetX: number;
+      offsetY: number;
+    } | undefined);
     const scale = useRef(1);
     const mouseInfo = useRef({
       button0: false,
@@ -333,11 +340,8 @@ export namespace AppEditorView {
                   points.add(ind);
                 }
               } else {
-                if (points.has(ind)) {
-                  points.delete(ind);
-                } else {
-                  points.add(ind);
-                }
+                toggleSet(points, ind);
+                return;
               }
               commonMouseDown(ev);
               ev.stopPropagation();
@@ -385,11 +389,8 @@ export namespace AppEditorView {
                   lines.add(ind);
                 }
               } else {
-                if (lines.has(ind)) {
-                  lines.delete(ind);
-                } else {
-                  lines.add(ind);
-                }
+                toggleSet(lines, ind);
+                return;
               }
               commonMouseDown(ev);
               ev.stopPropagation();
@@ -435,11 +436,8 @@ export namespace AppEditorView {
                   texts.add(ind);
                 }
               } else {
-                if (texts.has(ind)) {
-                  texts.delete(ind);
-                } else {
-                  texts.add(ind);
-                }
+                toggleSet(texts, ind);
+                return;
               }
               commonMouseDown(ev);
               ev.stopPropagation();
@@ -606,7 +604,30 @@ export namespace AppEditorView {
     const blankMouseDown = useRef(false);
     const onMouseUp = useCallback((ev: MouseEvent) => {
       if (ev.button === 0) {
-        if (blankMouseDown.current && !moveActivated.current) {
+        if (specialStatus.current === 'select') {
+          specialStatus.current = 'none';
+          if (selectFrom.current) {
+            const GeoRange = Geometry.Range;
+            const xRange = GeoRange.fromNumber(selectFrom.current.x, mouseInfo.current.x)
+              .offset(-selectFrom.current.offsetX)
+              .kMul(1 / scale.current)
+              .offset(-transformArgs.current.x);
+            const yRange = GeoRange.fromNumber(selectFrom.current.y, mouseInfo.current.y)
+              .offset(-selectFrom.current.offsetY)
+              .kMul(1 / scale.current)
+              .offset(-transformArgs.current.y);
+            fileContent.points.forEach((v, ind) => {
+              if (xRange.contains(v.x) && yRange.contains(v.y)) {
+                toggleSet(focus.current.points, ind);
+              }
+            });
+            fileContent.texts.forEach((v, ind) => {
+              if (xRange.contains(v.x) && yRange.contains(v.y)) {
+                toggleSet(focus.current.texts, ind);
+              }
+            });
+          }
+        } else if (blankMouseDown.current && !moveActivated.current) {
           blurAll();
           if (specialStatus.current === 'addLine') {
             specialStatus.current = 'none';
@@ -623,35 +644,37 @@ export namespace AppEditorView {
         }
       }
       blankMouseDown.current = false;
-    }, [emitter, blurAll]);
+    }, [emitter, blurAll, fileContent]);
     const onMouseMove = useCallback((ev: MouseEvent) => {
       if (mouseInfo.current.button0) {
-        const movement = {
-          x: (ev.clientX - mouseInfo.current.x) / scale.current,
-          y: (ev.clientY - mouseInfo.current.y) / scale.current,
-        };
-        const dis = (x: number, y: number) => Math.sqrt(x * x + y * y);
-        if (!moveActivated.current && dis(movement.x, movement.y) * scale.current < 10) {
-          return;
-        }
-        moveActivated.current = true;
-        const points = focus.current.points;
-        const texts = focus.current.texts;
-        if ((points.size || texts.size) && !blankMouseDown.current) {
-          if (!disabled.current) {
-            emitter.emit('editing');
+        if (specialStatus.current !== 'select') {
+          const movement = {
+            x: (ev.clientX - mouseInfo.current.x) / scale.current,
+            y: (ev.clientY - mouseInfo.current.y) / scale.current,
+          };
+          const dis = (x: number, y: number) => Math.sqrt(x * x + y * y);
+          if (!moveActivated.current && dis(movement.x, movement.y) * scale.current < 10) {
+            return;
           }
-          for (const point of points) {
-            controller.movePoint(point, { dx: movement.x, dy: movement.y });
+          moveActivated.current = true;
+          const points = focus.current.points;
+          const texts = focus.current.texts;
+          if ((points.size || texts.size) && !blankMouseDown.current) {
+            if (!disabled.current) {
+              emitter.emit('editing');
+            }
+            for (const point of points) {
+              controller.movePoint(point, { dx: movement.x, dy: movement.y });
+            }
+            for (const text of texts) {
+              controller.moveText(text, { dx: movement.x, dy: movement.y });
+            }
+          } else {
+            transformArgs.current = ({
+              x: transformArgs.current.x + movement.x,
+              y: transformArgs.current.y + movement.y,
+            });
           }
-          for (const text of texts) {
-            controller.moveText(text, { dx: movement.x, dy: movement.y });
-          }
-        } else {
-          transformArgs.current = ({
-            x: transformArgs.current.x + movement.x,
-            y: transformArgs.current.y + movement.y,
-          });
         }
         mouseInfo.current = ({
           x: ev.clientX,
@@ -743,6 +766,19 @@ export namespace AppEditorView {
             if (ev.button === 0) {
               blankMouseDown.current = true;
               commonMouseDown(ev);
+              if (ev.ctrlKey) {
+                specialStatus.current = 'select';
+                const { x, y } = mouseInfo.current;
+                const bRect = ev.currentTarget.getBoundingClientRect();
+                const offsetX = bRect.left;
+                const offsetY = bRect.top;
+                selectFrom.current = {
+                  x,
+                  y,
+                  offsetX,
+                  offsetY,
+                };
+              }
             }
           }}
           onContextMenu={onBlankMenu}
@@ -755,6 +791,27 @@ export namespace AppEditorView {
                   {focus.current.points.size > 1 ? '正在批量加边...' : '正在加边...'}
                 </text>
               ) : undefined
+          }
+          {
+            (() => {
+              if (specialStatus.current === 'select' && selectFrom.current) {
+                const GeoRange = Geometry.Range;
+                const xRange = GeoRange.fromNumber(selectFrom.current.x, mouseInfo.current.x)
+                  .offset(-selectFrom.current.offsetX);
+                const yRange = GeoRange.fromNumber(selectFrom.current.y, mouseInfo.current.y)
+                  .offset(-selectFrom.current.offsetY);
+                return (
+                  <rect
+                    x={xRange.l}
+                    y={yRange.l}
+                    width={xRange.dis()}
+                    height={yRange.dis()}
+                    fill={ColorTable.selectHighLight}
+                  ></rect>
+                );
+              }
+              return undefined;
+            })()
           }
           <g transform={`scale(${scale.current},${scale.current})`}>
             <g transform={`translate(${transformArgs.current.x}, ${transformArgs.current.y})`}>

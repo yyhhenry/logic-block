@@ -1,4 +1,39 @@
 export namespace Geometry {
+  export interface RangeLike {
+    l: number;
+    r: number;
+  }
+  export class Range {
+    readonly l: number;
+    readonly r: number;
+    private constructor(v: RangeLike) {
+      if (v.l > v.r) {
+        this.l = v.r;
+        this.r = v.l;
+      } else {
+        this.l = v.l;
+        this.r = v.r;
+      }
+    }
+    static fromRange(v: RangeLike) {
+      return new Range(v);
+    }
+    static fromNumber(l: number, r: number) {
+      return Range.fromRange({ l, r });
+    }
+    contains(x: number) {
+      return x >= this.l && x <= this.r;
+    }
+    offset(x: number) {
+      return Range.fromNumber(this.l + x, this.r + x);
+    }
+    kMul(x: number) {
+      return Range.fromNumber(this.l * x, this.r * x);
+    }
+    dis() {
+      return this.r - this.l;
+    }
+  }
   export interface PointLike {
     x: number;
     y: number;

@@ -52,7 +52,7 @@ export class AppEditorHeader extends React.Component<AppEditorHeaderProps>{
               } else if (res === '撤销/重做') {
                 AppAlert.confirm(`撤销重做对一切元素均有效，并具有保存深度上限${AppEditorRecordDepth}，并且会导致所有节点的状态重置`, false);
               } else if (res === '选中') {
-                AppAlert.confirm('按住Ctrl键单击以多选，Del键批量删除，左键批量拖动', false);
+                AppAlert.confirm('按住Ctrl键单击或框选以多选，Del键批量删除，左键批量拖动', false);
               }
               this.setState({ menuState: undefined });
             },
