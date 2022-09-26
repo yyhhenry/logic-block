@@ -26,6 +26,8 @@ export class LogicBlockRuntime {
   private child: number[][];
   private active: boolean[];
   private lineWithPoint: LogicLine[][];
+  private needUpdate: number[];
+  private needUpdateSet: Set<number>;
   constructor(originFileContent: LogicBlockFileModule.LogicBlockFileContent) {
     this.points = originFileContent.points.map(v => ({ ...v }));
     this.lines = originFileContent.lines.map(v => ({ ...v }));
@@ -40,13 +42,19 @@ export class LogicBlockRuntime {
         this.lineWithPoint[line.pointTo].push(line);
       }
     });
+    this.needUpdate = [];
+    this.needUpdateSet = new Set();
     this.rebuildMap();
     setTimeout(() => this.renderLoop());
   }
   private renderLoop() {
     const count = Math.max(1, Math.round((Math.random() + .5) * renderLoopInOneTick));
     for (let i = 0; i < count; i++) {
-      this.rebuildMap();
+      const toUpdate = [...this.needUpdate];
+      this.clearNeedUpdate();
+      toUpdate.forEach(u => {
+        this.updateMap(u);
+      });
     }
     setTimeout(() => this.renderLoop());
   }
@@ -73,6 +81,49 @@ export class LogicBlockRuntime {
       });
     }
   }
+  private clearNeedUpdate() {
+    this.needUpdate = [];
+    this.needUpdateSet = new Set();
+  }
+  private setNeedUpdate(u: number) {
+    if (!this.needUpdateSet.has(u)) {
+      this.needUpdateSet.add(u);
+      this.needUpdate.push(u);
+    }
+  }
+  private updateMap(u: number) {
+    if (this.points[u] === undefined) {
+      return;
+    }
+    const range = this.child[this.getf(u)];
+    let newActive = false;
+    range.forEach(u => {
+      const point = this.points[u];
+      if (point) {
+        newActive ||= point.power;
+        this.lineWithPoint[u].forEach(line => {
+          if (line && line.notGate && line.pointTo === u) {
+            newActive ||= !this.active[line.pointFrom];
+          }
+        });
+      }
+    });
+    if (newActive !== this.active[u]) {
+      range.forEach(u => {
+        const point = this.points[u];
+        if (point) {
+          this.lineWithPoint[u].forEach(line => {
+            if (line && line.notGate && line.pointFrom === u) {
+              this.setNeedUpdate(line.pointTo);
+            }
+          });
+        }
+      });
+    }
+    range.forEach(u => {
+      this.active[u] = newActive;
+    });
+  }
   private rebuildMap() {
     const range = this.points.map((_v, ind) => ind);
     const originActive = [...this.active];
@@ -96,6 +147,10 @@ export class LogicBlockRuntime {
       this.child[this.getf(u)].push(u);
     });
     this.active = this.fa.map((f) => this.active[f]);
+    this.clearNeedUpdate();
+    this.fa.filter((v, ind) => v === ind && this.points[v]).forEach(u => {
+      this.setNeedUpdate(u);
+    });
   }
   renderActive() {
     return this.points.flatMap((v, ind) =>
