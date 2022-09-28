@@ -21,13 +21,13 @@ interface AppAlertInfo {
   endTime: number;
 }
 function isAppAlertInfo(v: unknown): v is AppAlertInfo {
-  return isObject(v) && typeof v.content === 'string' && typeof v.endTime === 'number';
+  return isObject<AppAlertInfo>(v) && typeof v.content === 'string' && typeof v.endTime === 'number';
 }
 function isAppConfirmInfo(v: unknown): v is AppConfirmInfo {
-  return isObject(v) && typeof v.content === 'string' && typeof v.symbol === 'symbol' && typeof v.enableCancel === 'boolean' && typeof v.resolve === 'function';
+  return isObject<AppConfirmInfo>(v) && typeof v.content === 'string' && typeof v.symbol === 'symbol' && typeof v.enableCancel === 'boolean' && typeof v.resolve === 'function';
 }
 function isAppPromptInfo(v: unknown): v is AppPromptInfo {
-  return isObject(v) && typeof v.prompt === 'string' && typeof v.symbol === 'symbol' && typeof v.value === 'string' && typeof v.resolve === 'function';
+  return isObject<AppPromptInfo>(v) && typeof v.prompt === 'string' && typeof v.symbol === 'symbol' && typeof v.value === 'string' && typeof v.resolve === 'function';
 }
 interface ConfirmBlockProps {
   confirmInfo: AppConfirmInfo;

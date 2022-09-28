@@ -6,5 +6,5 @@ export interface AppFileInfo {
 }
 
 export function isAppFileInfo(obj: unknown): obj is AppFileInfo {
-  return isObject(obj) && typeof obj.filename == 'string' && typeof obj.color == 'string';
+  return isObject<AppFileInfo>(obj) && typeof obj.filename == 'string' && typeof obj.color == 'string';
 }

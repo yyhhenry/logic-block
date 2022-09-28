@@ -18,6 +18,10 @@ const storeInfoRecord: StoreInfoRecordType = {
       storeName: 'settings',
       keyPath: 'key',
     },
+    {
+      storeName: 'cache',
+      keyPath: 'key',
+    },
   ],
 };
 interface openDataBaseOption {

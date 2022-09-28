@@ -34,12 +34,19 @@ export class AppEditorHeader extends React.Component<AppEditorHeaderProps>{
           },
           {
             name: '编辑',
-            options: ['撤销', '重做'],
+            options: ['复制', '粘贴', '全选', '', '撤销', '重做'],
             resolve: res => {
+              const { emitter } = this.props;
               if (res === '撤销') {
-                this.props.emitter.emit('undo');
+                emitter.emit('undo');
               } else if (res === '重做') {
-                this.props.emitter.emit('redo');
+                emitter.emit('redo');
+              } else if (res === '复制') {
+                emitter.emit('copy');
+              } else if (res === '粘贴') {
+                emitter.emit('paste');
+              } else if (res === '全选') {
+                emitter.emit('selectAll');
               }
             },
           },

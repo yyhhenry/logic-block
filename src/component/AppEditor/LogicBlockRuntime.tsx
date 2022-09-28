@@ -5,19 +5,6 @@ const renderLoopInOneTick = 5;
 type LogicPoint = LogicBlockFileModule.Point;
 type LogicLine = LogicBlockFileModule.Line;
 type LogicText = LogicBlockFileModule.Text;
-export interface LogicBlockRuntimeController {
-  setPoint: (u: number, value: ModifyOption<LogicPoint>) => void;
-  movePoint: (u: number, value: { dx: number, dy: number; }) => void;
-  addPoint: (value: LogicPoint) => void;
-  removePoint: (u: number) => void;
-  setLine: (u: number, operate: 'notGate' | 'reverse') => void;
-  removeLine: (u: number) => void;
-  addLine: (value: LogicLine) => void;
-  setText: (u: number, value: ModifyOption<LogicText>) => void;
-  moveText: (u: number, value: { dx: number, dy: number; }) => void;
-  addText: (text: LogicText) => void;
-  removeText: (u: number) => void;
-}
 export class LogicBlockRuntime {
   private points: (LogicPoint | null)[];
   private lines: (LogicLine | null)[];
@@ -48,6 +35,16 @@ export class LogicBlockRuntime {
     setTimeout(() => this.renderLoop());
   }
   private renderLoop() {
+    const time = Date.now();
+    for (const point of this.points) {
+      if (!point) continue;
+      if (point.interval === undefined) continue;
+      const newPower = Math.floor(time / 1000 / (point.interval / 2)) % 2 === 1;
+      if (newPower !== point.power) {
+        point.power = newPower;
+        this.rebuildMap();
+      }
+    }
     const count = Math.max(1, Math.round((Math.random() + .5) * renderLoopInOneTick));
     for (let i = 0; i < count; i++) {
       const toUpdate = [...this.needUpdate];
@@ -183,12 +180,19 @@ export class LogicBlockRuntime {
       textPointer: getPointerOf(this.texts),
     };
   }
+  /**
+   * 
+   * @param value.interval 当需要传入undefined时，请使用0
+   */
   private setPoint(u: number, value: ModifyOption<LogicPoint>) {
     const point = this.points[u];
     if (point) {
       point.power = value.power ?? point.power;
       point.x = value.x ?? point.x;
       point.y = value.y ?? point.y;
+      if (value.interval !== undefined) {
+        point.interval = value.interval === 0 ? undefined : value.interval;
+      }
       this.rebuildMap();
     }
   }
@@ -289,9 +293,66 @@ export class LogicBlockRuntime {
   private removeText(u: number) {
     this.texts[u] = null;
   }
-  getControllerCopy(): LogicBlockRuntimeController {
+  private putStuff(stuff: LogicBlockFileModule.LogicBlockFileContent, offset: { x: number; y: number; } = { x: 0, y: 0 }) {
+    const pointOffset = this.points.length;
+    const positionOffset = Math.floor(Math.random() * 30 + 10);
+    stuff.points.forEach(v => {
+      this.addPoint({
+        ...v,
+        x: v.x + offset.x + positionOffset,
+        y: v.y + offset.y + positionOffset,
+      });
+    });
+    stuff.lines.forEach(v => {
+      this.addLine({
+        ...v,
+        pointFrom: pointOffset + v.pointFrom,
+        pointTo: pointOffset + v.pointTo,
+      });
+    });
+    stuff.texts.forEach(v => {
+      this.addText({
+        ...v,
+        x: v.x + offset.x + positionOffset,
+        y: v.y + offset.y + positionOffset,
+      });
+    });
+  }
+  getControllerCopy() {
     const { pointPointer, linePointer, textPointer } = this.getPointer(true);
     return {
+      sliceStuff: (pointSet: number[], textSet: number[]): LogicBlockFileModule.LogicBlockFileContent => {
+        const map = {} as Record<number, number | undefined>;
+        pointSet.forEach((v, ind) => {
+          map[pointPointer[v]] = ind;
+        });
+        const points = pointSet.flatMap(u => {
+          const point = this.points[pointPointer[u]];
+          return point ? [{ ...point }] : [];
+        });
+        const lines = this.lines.flatMap(line => {
+          if (!line) return [];
+          const pointFrom = map[line.pointFrom];
+          const pointTo = map[line.pointTo];
+          return pointFrom !== undefined && pointTo !== undefined ? [{ ...line, pointFrom, pointTo }] : [];
+        });
+        const texts = textSet.flatMap(u => {
+          const text = this.texts[textPointer[u]];
+          return text ? [{ ...text }] : [];
+        });
+        return {
+          points,
+          lines,
+          texts,
+        };
+      },
+      putStuff: (stuff: LogicBlockFileModule.LogicBlockFileContent, offset: { x: number; y: number; } = { x: 0, y: 0 }) => {
+        this.putStuff(stuff, offset);
+      },
+      /**
+       * 
+       * @param value.interval 当需要传入undefined时，请使用0
+       */
       setPoint: (u: number, value: ModifyOption<LogicPoint>) => {
         const ru = pointPointer[u];
         return this.setPoint(ru, value);
@@ -339,3 +400,5 @@ export class LogicBlockRuntime {
     };
   }
 }
+type ReturnTypeOf<T extends Function> = T extends () => infer P ? P : unknown;
+export type LogicBlockRuntimeController = ReturnTypeOf<typeof LogicBlockRuntime.prototype.getControllerCopy>;

@@ -103,7 +103,7 @@ export const AppEditorContent: React.FC<AppEditorContentProps> = props => {
     AppAlert.confirm('确定要保存到本地吗？').then(v => {
       if (v && runtime !== undefined && filename !== undefined) {
         const content = runtime.renderFileContent();
-        createDownload(encodeURIComponent(filename) + localAppFileExtName, JSON.stringify(content));
+        createDownload(filename + localAppFileExtName, JSON.stringify(content));
       }
     });
   }, [runtime, filename]);

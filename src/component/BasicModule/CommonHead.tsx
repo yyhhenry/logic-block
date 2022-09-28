@@ -1,6 +1,6 @@
 import { AppAlert } from "./AppAlert";
-
-export function isObject(obj: unknown): obj is Record<keyof any, unknown> {
+type MaybeType<T extends {} = {}> = { [key in keyof T]: unknown; };
+export function isObject<T extends {} = {}>(obj: unknown): obj is MaybeType<T> {
   if (typeof obj !== 'object' || obj === null) return false;
   return true;
 }

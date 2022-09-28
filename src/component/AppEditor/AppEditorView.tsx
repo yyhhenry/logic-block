@@ -5,7 +5,8 @@ import { Geometry } from '../BasicModule/Geometry';
 import { EventEmitter } from 'stream';
 import { AppOptionList } from '../BasicModule/AppOptionList';
 import { AppAlert } from '../BasicModule/AppAlert';
-import { ColorTable, toggleSet } from '../BasicModule/CommonHead';
+import { ColorTable, isObject, toggleSet } from '../BasicModule/CommonHead';
+import { AppDataBase, logicBlockDataBaseName } from '../AppDataBase';
 const GeoPoint = Geometry.Point;
 export namespace EditorColorTable {
   export const activeLine = 'rgb(30,60,250)';
@@ -217,6 +218,12 @@ export namespace AppEditorView {
       y: number;
     };
   }
+  interface ClipboardStuff {
+    key: string;
+    value: LogicBlockFileModule.LogicBlockFileContent;
+  }
+  const isClipboardStuff = (v: unknown): v is ClipboardStuff =>
+    isObject<ClipboardStuff>(v) && typeof v.key === 'string' && LogicBlockFileModule.isRedstoneFileContent(v.value);
   interface TableViewState {
     menuType: 'point' | 'line' | 'text' | 'text-resize' | 'blank' | 'none';
     pointMenu?: PointMenuArgs;
@@ -459,7 +466,7 @@ export namespace AppEditorView {
         const focusSize = focus.current.points.size;
         return (
           <AppOptionList
-            options={[point.power ? '清除源' : '生成源', focusSize > 1 ? '添加多条边' : '添加边', '', '删除']}
+            options={[point.power ? '清除源' : '生成源', focusSize > 1 ? '添加多条边' : '添加边', '', point.interval === undefined ? '添加时钟' : '删除时钟', '删除']}
             symbol={point}
             headerNodeRect={{ left: rect.right, bottom: rect.bottom }}
             curtain={false}
@@ -471,6 +478,19 @@ export namespace AppEditorView {
                 deleteFocus();
               } else if (res === '添加边' || res === '添加多条边') {
                 specialStatus.current = 'addLine';
+              } else if (res === '添加时钟') {
+                AppAlert.prompt('周期（每来回）/秒-[0.1, 10]', '2').then(v => {
+                  if (v !== null) {
+                    const num = +v;
+                    if (!isNaN(num) && num >= .1 && num <= 10) {
+                      controller.setPoint(ind, { interval: num });
+                      emitter.emit('save');
+                    }
+                  }
+                });
+              } else if (res === '删除时钟') {
+                controller.setPoint(ind, { interval: 0 });
+                emitter.emit('save');
               }
               clearMenuState();
             }}
@@ -683,11 +703,63 @@ export namespace AppEditorView {
         });
       }
     }, [emitter, controller]);
+    const onCopy = useCallback(() => {
+      if (focus.current.points.size || focus.current.texts.size) {
+        const stuff = controller.sliceStuff([...focus.current.points], [...focus.current.texts]);
+        const database = AppDataBase.getDataBase(logicBlockDataBaseName);
+        database.modifyTransaction('cache', store => {
+          store.put({ key: 'clipboard', value: stuff } as ClipboardStuff);
+        });
+      }
+    }, [controller]);
+    const onPaste = useCallback(() => {
+      const database = AppDataBase.getDataBase(logicBlockDataBaseName);
+      database.queryTransaction('cache',
+        isClipboardStuff,
+        'clipboard',
+      ).then(clipboard => {
+        if (clipboard !== undefined) {
+          blurAll();
+          const pointOffset = points.length;
+          const textOffset = texts.length;
+          for (let i = 0; i < clipboard.value.points.length; i++) {
+            focus.current.points.add(pointOffset + i);
+          }
+          for (let i = 0; i < clipboard.value.texts.length; i++) {
+            focus.current.texts.add(textOffset + i);
+          }
+          controller.putStuff(clipboard.value, {
+            x: -transformArgs.current.x,
+            y: -transformArgs.current.y,
+          });
+          emitter.emit('save');
+        } else {
+          AppAlert.confirm('没有可以粘贴的内容', false);
+        }
+      });
+    }, [blurAll, points.length, texts.length, controller, emitter]);
+    const onSelectAll = useCallback(() => {
+      for (let i = 0; i < points.length; i++) {
+        focus.current.points.add(i);
+      }
+      for (let i = 0; i < texts.length; i++) {
+        focus.current.texts.add(i);
+      }
+    }, [points.length, texts.length]);
     const onKeyUp = useCallback((ev: KeyboardEvent) => {
       if (ev.key === 'Delete') {
         deleteFocus();
+      } else if (ev.key.toLowerCase() === 'c' && ev.ctrlKey) {
+        emitter.emit('copy');
+      } else if (ev.key.toLowerCase() === 'v' && ev.ctrlKey) {
+        emitter.emit('paste');
+      } else if (ev.key.toLowerCase() === 'a' && ev.ctrlKey) {
+        emitter.emit('selectAll');
+      } else {
+        return;
       }
-    }, [deleteFocus]);
+      ev.preventDefault();
+    }, [deleteFocus, emitter]);
     const onOuterChange = useCallback(() => {
       blurAll();
       specialStatus.current = 'none';
@@ -696,6 +768,9 @@ export namespace AppEditorView {
       emitter.addListener('editing', editing);
       emitter.addListener('undo', onOuterChange);
       emitter.addListener('redo', onOuterChange);
+      emitter.addListener('copy', onCopy);
+      emitter.addListener('paste', onPaste);
+      emitter.addListener('selectAll', onSelectAll);
       emitter.addListener('save', onSave);
       window.addEventListener('mouseup', onMouseUp);
       window.addEventListener('mousemove', onMouseMove);
@@ -704,12 +779,16 @@ export namespace AppEditorView {
         emitter.removeListener('editing', editing);
         emitter.removeListener('undo', onOuterChange);
         emitter.removeListener('redo', onOuterChange);
+        emitter.removeListener('copy', onCopy);
+        emitter.removeListener('paste', onPaste);
+        emitter.removeListener('selectAll', onSelectAll);
         emitter.removeListener('save', onSave);
         window.removeEventListener('mouseup', onMouseUp);
         window.removeEventListener('mousemove', onMouseMove);
         window.removeEventListener('keyup', onKeyUp);
       };
-    }, [emitter, editing, onSave, onMouseUp, onMouseMove, onKeyUp, onOuterChange]);
+    }, [emitter, editing, onSave, onMouseUp, onMouseMove,
+      onKeyUp, onOuterChange, onCopy, onPaste, onSelectAll]);
     const onBlankMenu = (ev: React.MouseEvent<SVGSVGElement, MouseEvent>) => {
       blurAll();
       const rect = ev.currentTarget.getBoundingClientRect();
